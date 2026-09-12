@@ -1,0 +1,57 @@
+{
+  "name": "purgo",
+  "productName": "Purgo",
+  "version": "0.1.0",
+  "description": "Windows-Aufräum- und Wartungstool: Junk-Cleaner, Registry-Cleaner, Autostart- & Programm-Manager, Treiber-Check.",
+  "author": "Tino",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:signed": "node scripts/dist-signed.js",
+    "test": "node --test",
+    "smoke": "node scripts/smoke.js"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.purgo.app",
+    "productName": "Purgo",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "REPLACE_WITH_GITHUB_USERNAME",
+      "repo": "REPLACE_WITH_REPO_NAME"
+    }
+  }
+}

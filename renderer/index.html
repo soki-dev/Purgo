@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Purgo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <nav class="sidebar">
+      <div class="brand">
+        <img class="brand-mark" src="../assets/icon-64.png" alt="Purgo" />
+        <span class="brand-name">Purgo</span>
+      </div>
+      <button class="nav-item active" data-view="dashboard">
+        <span class="nav-icon">◈</span> <span data-i18n="nav.dashboard">Dashboard</span>
+      </button>
+      <button class="nav-item" data-view="cleaner">
+        <span class="nav-icon">✦</span> <span data-i18n="nav.cleaner">Cleaner</span>
+      </button>
+      <button class="nav-item" data-view="registry">
+        <span class="nav-icon">⌂</span> <span data-i18n="nav.registry">Registry</span>
+      </button>
+      <button class="nav-item" data-view="startup">
+        <span class="nav-icon">⏻</span> <span data-i18n="nav.startup">Autostart &amp; Programme</span>
+      </button>
+      <button class="nav-item" data-view="duplicates">
+        <span class="nav-icon">▥</span> <span data-i18n="nav.duplicates">Duplikate</span>
+      </button>
+      <button class="nav-item" data-view="space">
+        <span class="nav-icon">◫</span> <span data-i18n="nav.space">Speicherplatz</span>
+      </button>
+      <button class="nav-item" data-view="services">
+        <span class="nav-icon">▤</span> <span data-i18n="nav.services">Dienste</span>
+      </button>
+      <button class="nav-item" data-view="drivers">
+        <span class="nav-icon">⛭</span> <span data-i18n="nav.drivers">Treiber</span>
+      </button>
+      <button class="nav-item" data-view="history">
+        <span class="nav-icon">☰</span> <span data-i18n="nav.history">Historie</span>
+      </button>
+      <button class="nav-item" data-view="settings">
+        <span class="nav-icon">⚙</span> <span data-i18n="nav.settings">Einstellungen</span>
+      </button>
+      <div class="sidebar-footer">v0.3.0 · Prototyp</div>
+    </nav>
+
+    <main class="content">
+      <div class="admin-banner" id="admin-banner" hidden>
+        <span data-i18n="admin.bannerText">Purgo läuft ohne Administrator-Rechte – manche Registry- und Programm-Aktionen können fehlschlagen.</span>
+        <button class="btn btn-small" id="admin-relaunch-btn" data-i18n="admin.relaunch">Als Administrator neu starten</button>
+      </div>
+
+      <!-- Dashboard -->
+      <section class="view active" id="view-dashboard">
+        <header class="view-header">
+          <h1 data-i18n="dashboard.title">Dashboard</h1>
+          <button class="btn btn-ghost" id="dashboard-refresh" data-i18n="dashboard.refresh">Aktualisieren</button>
+        </header>
+
+        <div class="health-card">
+          <div class="health-score">
+            <div class="score-ring" id="health-ring">
+              <span id="health-score-value">–</span>
+            </div>
+            <div class="score-label" data-i18n="dashboard.health">System-Health</div>
+          </div>
+          <div class="health-meta" id="health-meta">
+            <div class="meta-row"><span data-i18n="dashboard.hostname">Rechnername</span><span id="meta-hostname">–</span></div>
+            <div class="meta-row"><span data-i18n="dashboard.platform">System</span><span id="meta-platform">–</span></div>
+          </div>
+          <div class="quick-clean-box">
+            <button class="btn btn-primary btn-large" id="quick-clean-btn" data-i18n="dashboard.quickClean">Jetzt aufräumen</button>
+            <div class="quick-clean-hint" data-i18n="dashboard.quickCleanHint">Bereinigt nur als „sicher“ eingestufte Kategorien in einem Schritt.</div>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-title" data-i18n="dashboard.cpu">CPU-Auslastung</div>
+            <div class="bar"><div class="bar-fill" id="bar-cpu"></div></div>
+            <div class="stat-value" id="value-cpu">–</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title" data-i18n="dashboard.ram">Arbeitsspeicher</div>
+            <div class="bar"><div class="bar-fill" id="bar-ram"></div></div>
+            <div class="stat-value" id="value-ram">–</div>
+          </div>
+        </div>
+
+        <h2 class="section-title" data-i18n="dashboard.disks">Laufwerke</h2>
+        <div class="disk-list" id="disk-list"><div class="empty-hint" data-i18n="common.loading">Lade Systeminformationen…</div></div>
+
+        <div class="dashboard-history-row">
+          <div class="history-block">
+            <h2 class="section-title" data-i18n="dashboard.lifetime">Bisher freigegeben</h2>
+            <div class="lifetime-stat" id="lifetime-stat">–</div>
+          </div>
+          <div class="history-block history-block-wide">
+            <h2 class="section-title" data-i18n="dashboard.recentActions">Letzte Aktionen</h2>
+            <div class="item-list" id="history-list"><div class="empty-hint" data-i18n="dashboard.noActions">Noch keine Aktionen.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cleaner -->
+      <section class="view" id="view-cleaner">
+        <header class="view-header">
+          <h1 data-i18n="cleaner.title">Junk-Cleaner</h1>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="junk-scan-btn" data-i18n="common.startScan">Scan starten</button>
+            <button class="btn btn-primary" id="junk-clean-btn" disabled data-i18n="common.cleanSelected">Ausgewählte bereinigen</button>
+          </div>
+        </header>
+        <p class="hint" data-i18n="cleaner.hint">Vorschau-Modus: Es wird zuerst nur angezeigt, was gelöscht <strong>würde</strong>. Erst nach Klick auf „Ausgewählte bereinigen“ wird wirklich etwas gelöscht. Cookie-, Verlaufs- und Autofill-Kategorien benötigen einen geschlossenen Browser, sonst schlägt das Löschen fehl.</p>
+        <div class="summary-bar" id="junk-summary" hidden>
+          <span id="junk-summary-text"></span>
+        </div>
+        <div class="item-list" id="junk-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+      </section>
+
+      <!-- Registry -->
+      <section class="view" id="view-registry">
+        <header class="view-header">
+          <h1 data-i18n="registry.title">Registry-Cleaner</h1>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="registry-scan-btn" data-i18n="common.startScan">Scan starten</button>
+            <button class="btn btn-primary" id="registry-clean-btn" disabled data-i18n="common.cleanSelected">Ausgewählte bereinigen</button>
+          </div>
+        </header>
+        <p class="hint" data-i18n="registry.hint">Nur nachweislich verwaiste Einträge werden gemeldet (Ziel existiert nicht mehr). Vor jeder Löschung wird automatisch ein <code>.reg</code>-Backup angelegt.</p>
+        <div class="item-list" id="registry-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+      </section>
+
+      <!-- Autostart & Programme -->
+      <section class="view" id="view-startup">
+        <header class="view-header">
+          <h1 data-i18n="startup.title">Autostart &amp; Programme</h1>
+        </header>
+
+        <div class="subtabs">
+          <button class="subtab active" data-subtab="autostart" data-i18n="startup.tabAutostart">Autostart</button>
+          <button class="subtab" data-subtab="programs" data-i18n="startup.tabPrograms">Installierte Programme</button>
+          <button class="subtab" data-subtab="residue" data-i18n="startup.tabResidue">Programm-Reste</button>
+          <button class="subtab" data-subtab="performance" data-i18n="startup.tabPerformance">Performance-Modus</button>
+        </div>
+
+        <div class="subview active" id="subview-autostart">
+          <div class="header-actions inline">
+            <button class="btn btn-ghost" id="startup-scan-btn" data-i18n="common.startScan">Scan starten</button>
+          </div>
+          <div class="item-list" id="startup-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+        </div>
+
+        <div class="subview" id="subview-programs">
+          <div class="header-actions inline">
+            <button class="btn btn-ghost" id="programs-scan-btn" data-i18n="startup.loadPrograms">Programme laden</button>
+            <input class="search-input" id="programs-search" type="text" placeholder="Programm suchen…" data-i18n-placeholder="startup.searchPlaceholder" />
+          </div>
+          <div class="item-list" id="programs-list"><div class="empty-hint" data-i18n="startup.noProgramsYet">Noch keine Liste geladen.</div></div>
+        </div>
+
+        <div class="subview" id="subview-residue">
+          <p class="hint" data-i18n="startup.residueHint">Ordner unter „Program Files“, die keinem Eintrag in der Programme-Liste zugeordnet werden können. Kann auch portable Programme fälschlich melden – vor dem Löschen prüfen.</p>
+          <div class="header-actions inline">
+            <button class="btn btn-ghost" id="residue-scan-btn" data-i18n="common.startScan">Scan starten</button>
+            <button class="btn btn-primary" id="residue-clean-btn" disabled data-i18n="common.deleteSelected">Ausgewählte löschen</button>
+          </div>
+          <div class="item-list" id="residue-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+        </div>
+
+        <div class="subview" id="subview-performance">
+          <p class="hint" data-i18n="performance.hint">Energieplan wechseln und sichtbare Hintergrund-Apps manuell beenden, um kurzfristig Leistung freizugeben (z.B. vor dem Spielen). Nichts davon läuft automatisch im Hintergrund.</p>
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="item-label" data-i18n="performance.currentPlan">Aktueller Energieplan</div>
+              <div class="item-desc" id="power-plan-current">–</div>
+            </div>
+            <div class="header-actions inline">
+              <button class="btn btn-ghost" id="power-plan-balanced-btn" data-i18n="performance.balanced">Ausbalanciert</button>
+              <button class="btn btn-primary" id="power-plan-high-btn" data-i18n="performance.highPerformance">Höchstleistung</button>
+            </div>
+          </div>
+          <h2 class="section-title" data-i18n="performance.backgroundApps">Sichtbare Hintergrund-Apps</h2>
+          <div class="header-actions inline">
+            <button class="btn btn-ghost" id="performance-scan-btn" data-i18n="common.startScan">Scan starten</button>
+          </div>
+          <div class="item-list" id="performance-apps-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+        </div>
+      </section>
+
+      <!-- Services -->
+      <section class="view" id="view-services">
+        <header class="view-header">
+          <h1 data-i18n="services.title">Windows-Dienste</h1>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="services-scan-btn" data-i18n="services.load">Dienste laden</button>
+            <input class="search-input" id="services-search" type="text" placeholder="Dienst suchen…" data-i18n-placeholder="services.searchPlaceholder" />
+          </div>
+        </header>
+        <p class="hint" data-i18n="services.hint">Vorsicht: Manche Dienste sind für Windows kritisch. Im Zweifel den Namen vorher recherchieren, bevor du ihn stoppst oder deaktivierst.</p>
+        <div class="item-list" id="services-list"><div class="empty-hint" data-i18n="services.noneYet">Noch keine Liste geladen.</div></div>
+      </section>
+
+      <!-- Duplicates -->
+      <section class="view" id="view-duplicates">
+        <header class="view-header">
+          <h1 data-i18n="duplicates.title">Duplikat-Finder</h1>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="duplicates-pick-btn" data-i18n="common.pickFolder">Ordner wählen…</button>
+            <button class="btn btn-ghost" id="duplicates-scan-btn" disabled data-i18n="common.startScan">Scan starten</button>
+            <button class="btn btn-primary" id="duplicates-clean-btn" disabled data-i18n="common.deleteSelected">Ausgewählte löschen</button>
+          </div>
+        </header>
+        <p class="hint" data-i18n="duplicates.hint">Dateien werden per Inhalts-Hash verglichen (nicht nur Name/Größe). Pro Gruppe bleibt mindestens eine Kopie erhalten – die erste Datei ist immer vorausgewählt zum Behalten.</p>
+        <div class="summary-bar" id="duplicates-summary" hidden><span id="duplicates-summary-text"></span></div>
+        <div class="path-display" id="duplicates-path" data-i18n="duplicates.noFolder">Kein Ordner ausgewählt.</div>
+        <div class="scan-progress" id="duplicates-progress" hidden>
+          <div class="scan-progress-label" id="duplicates-progress-label"></div>
+          <div class="bar"><div class="bar-fill" id="duplicates-progress-fill"></div></div>
+        </div>
+        <div class="item-list" id="duplicates-list"><div class="empty-hint" data-i18n="duplicates.pickFirst">Wähle zuerst einen Ordner aus.</div></div>
+      </section>
+
+      <!-- Space Analyzer -->
+      <section class="view" id="view-space">
+        <header class="view-header">
+          <h1 data-i18n="space.title">Speicherplatz-Analyzer</h1>
+          <button class="btn btn-ghost" id="space-pick-btn" data-i18n="common.pickFolder">Ordner wählen…</button>
+        </header>
+        <p class="hint" data-i18n="space.hint">Zeigt die größten Ordner und Dateien einer Ebene. Auf einen Ordner klicken, um hineinzugehen.</p>
+        <div class="breadcrumb" id="space-breadcrumb"></div>
+        <div class="scan-progress" id="space-progress" hidden>
+          <div class="scan-progress-label" id="space-progress-label"></div>
+          <div class="bar"><div class="bar-fill" id="space-progress-fill"></div></div>
+        </div>
+        <div class="item-list" id="space-list"><div class="empty-hint" data-i18n="space.pickToStart">Wähle einen Ordner aus, um zu starten.</div></div>
+      </section>
+
+      <!-- Treiber -->
+      <section class="view" id="view-drivers">
+        <header class="view-header">
+          <h1 data-i18n="drivers.title">Treiber-Check</h1>
+          <button class="btn btn-ghost" id="drivers-scan-btn" data-i18n="common.startScan">Scan starten</button>
+        </header>
+        <p class="hint" data-i18n="drivers.hint">Es gibt keine offizielle Online-Datenbank für „aktuelle“ Treiber. Purgo zeigt daher das Alter des installierten Treibers und verlinkt auf eine Hersteller-Suche – automatisch heruntergeladen oder installiert wird nichts.</p>
+        <div class="item-list" id="drivers-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+      </section>
+
+      <!-- History -->
+      <section class="view" id="view-history">
+        <header class="view-header">
+          <h1 data-i18n="history.title">Historie</h1>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="history-export-btn" data-i18n="history.export">Als CSV exportieren</button>
+            <button class="btn btn-danger" id="history-clear-btn" data-i18n="history.clear">Verlauf löschen</button>
+          </div>
+        </header>
+        <p class="hint" data-i18n="history.hint">Protokolliert alle Scans und Aktionen von Purgo. Es werden die letzten 200 Einträge aufbewahrt.</p>
+        <div class="subtabs" id="history-filters">
+          <button class="subtab active" data-filter="all" data-i18n="history.filterAll">Alle</button>
+          <button class="subtab" data-filter="scan" data-i18n="history.filterScan">Scans</button>
+          <button class="subtab" data-filter="clean" data-i18n="history.filterClean">Bereinigungen</button>
+          <button class="subtab" data-filter="program" data-i18n="history.filterProgram">Programme</button>
+          <button class="subtab" data-filter="settings" data-i18n="history.filterSettings">Einstellungen</button>
+        </div>
+        <div class="item-list" id="history-full-list"><div class="empty-hint" data-i18n="history.empty">Noch keine Aktionen.</div></div>
+      </section>
+
+      <!-- Settings -->
+      <section class="view" id="view-settings">
+        <header class="view-header">
+          <h1 data-i18n="settings.title">Einstellungen</h1>
+        </header>
+
+        <h2 class="section-title" data-i18n="settings.design">Design</h2>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.theme">Erscheinungsbild</div>
+          </div>
+          <select class="search-input" id="setting-theme">
+            <option value="dark" data-i18n="settings.themeDark">Dunkel</option>
+            <option value="light" data-i18n="settings.themeLight">Hell</option>
+            <option value="system" data-i18n="settings.themeSystem">System</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.accent">Akzentfarbe</div>
+          </div>
+          <div class="accent-swatches" id="accent-swatches"></div>
+        </div>
+
+        <h2 class="section-title" data-i18n="settings.behavior">Verhalten</h2>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.tray">In den Tray minimieren</div>
+            <div class="item-desc" data-i18n="settings.trayDesc">Beim Schließen des Fensters läuft Purgo im Hintergrund weiter (Symbol im Infobereich der Taskleiste) statt beendet zu werden.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setting-minimize-tray" />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.language">Sprache</div>
+          </div>
+          <select class="search-input" id="setting-language">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <p class="hint" data-i18n="settings.languageHint">Übersetzt die Oberfläche. Scan-Ergebnisse und Beschreibungen aus dem Backend bleiben aktuell auf Deutsch.</p>
+
+        <h2 class="section-title" data-i18n="settings.scheduler">Geplante Reinigung</h2>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.schedulerEnable">Automatische Reinigung aktivieren</div>
+            <div class="item-desc" data-i18n="settings.schedulerDesc">Bereinigt regelmäßig automatisch die als „sicher“ eingestuften Junk-Kategorien, solange Purgo (auch im Tray) läuft.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setting-scheduler-enabled" />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.frequency">Häufigkeit</div>
+          </div>
+          <select class="search-input" id="setting-scheduler-frequency">
+            <option value="daily" data-i18n="settings.daily">Täglich</option>
+            <option value="weekly" data-i18n="settings.weekly">Wöchentlich</option>
+          </select>
+        </div>
+        <div class="item-desc" id="scheduler-last-run"></div>
+
+        <h2 class="section-title" data-i18n="settings.security">Sicherheit</h2>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.pin">PIN für riskante Aktionen</div>
+            <div class="item-desc" data-i18n="settings.pinDesc">Fragt vor Registry-Bereinigung, Deinstallation und dem Löschen von Programm-Resten eine zuvor festgelegte PIN ab.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setting-pin-enabled" />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="header-actions inline">
+          <button class="btn btn-ghost" id="pin-change-btn" hidden data-i18n="settings.pinChange">PIN ändern</button>
+        </div>
+
+        <h2 class="section-title" data-i18n="settings.updates">Updates</h2>
+        <div class="header-actions inline">
+          <button class="btn btn-ghost" id="update-check-btn" data-i18n="settings.checkUpdate">Nach Updates suchen</button>
+        </div>
+        <div class="item-desc" id="update-status"></div>
+        <p class="hint" data-i18n="settings.updateHint">Benötigt ein konfiguriertes Release-Repository. In diesem Prototyp ist dafür noch kein echtes Repository hinterlegt.</p>
+
+        <h2 class="section-title" data-i18n="settings.excludeList">Ausschlussliste</h2>
+        <p class="hint" data-i18n="settings.excludeHint">Ordner hier drin werden von Junk-Scan und Duplikat-Finder komplett ignoriert.</p>
+        <div class="header-actions inline">
+          <button class="btn btn-ghost" id="exclude-add-btn" data-i18n="settings.excludeAdd">Ordner hinzufügen…</button>
+        </div>
+        <div class="item-list" id="exclude-list"><div class="empty-hint" data-i18n="settings.excludeEmpty">Keine Ausschlüsse konfiguriert.</div></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="theme.js"></script>
+  <script src="ui.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

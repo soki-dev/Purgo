@@ -51,7 +51,8 @@
     "publish": {
       "provider": "github",
       "owner": "soki-dev",
-      "repo": "Purgo"
+      "repo": "Purgo",
+      "draft": false
     }
   }
 }

@@ -77,7 +77,15 @@ npm run dist:signed     # Signiert zusätzlich mit dem lokalen Test-Zertifikat (
 
 ### Auto-Update & CI/CD
 
-In `package.json` unter `build.publish` müssen `owner`/`repo` durch ein echtes GitHub-Repository ersetzt werden. `.github/workflows/release.yml` baut und veröffentlicht bei jedem Tag im Format `v1.2.3` automatisch einen Release über `electron-builder --publish always`. Für ein echtes Signatur-Zertifikat in CI die Repo-Secrets `CSC_LINK` und `CSC_KEY_PASSWORD` setzen; ohne sie baut die Pipeline einfach unsigniert weiter. Das Repository braucht unter Settings → Actions → General die Berechtigung „Read and write“ für den `GITHUB_TOKEN`, damit die Pipeline Releases erstellen darf.
+Konfiguriert für [soki-dev/Purgo](https://github.com/soki-dev/Purgo). `.github/workflows/release.yml` baut bei jedem Tag im Format `v1.2.3` automatisch einen Installer und veröffentlicht ihn über `electron-builder --publish always` als GitHub-Release. Für ein echtes Signatur-Zertifikat in CI die Repo-Secrets `CSC_LINK` und `CSC_KEY_PASSWORD` setzen; ohne sie baut die Pipeline einfach unsigniert weiter. Das Repository braucht unter Settings → Actions → General die Berechtigung „Read and write“ für den `GITHUB_TOKEN`, damit die Pipeline Releases erstellen darf.
+
+`build.publish.draft` steht auf `false`: neue Releases gehen **sofort live**, sobald der Build durchläuft – kein manueller "Publish release"-Klick mehr nötig. Kehrseite: ein Build, der zwar erfolgreich durchläuft, aber einen kaputten/fehlerhaften Installer produziert, wird ebenso sofort öffentlich und von Purgo-Installationen als Update erkannt. Die Unit-Tests laufen zwar vor dem Build in der Pipeline, decken aber nur reine Logik ab, keine UI/PowerShell-Interaktion (siehe „Tests“ oben) – vor dem Taggen einer neuen Version lohnt sich also weiterhin ein manueller Blick.
+
+Neue Version veröffentlichen:
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
 
 ## Bekannte Prototyp-Grenzen
 

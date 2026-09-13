@@ -52,7 +52,7 @@
       "provider": "github",
       "owner": "soki-dev",
       "repo": "Purgo",
-      "draft": false
+      "releaseType": "release"
     }
   }
 }

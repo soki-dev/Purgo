@@ -2,6 +2,7 @@
 
 ## v0.5.1
 - Bugfix: Der Ersteinrichtungs-Assistent blieb nach dem ersten Abschluss bei jedem weiteren Start leer und blockierend im Vordergrund hängen (Skip/Weiter reagierten nicht). Ursache: `.admin-banner` und `.modal-backdrop` setzten `display: flex` fest und überschrieben damit die Browser-Standardregel für das `hidden`-Attribut. Fix: globale `[hidden] { display: none !important; }`-Regel ergänzt.
+- Bugfix: Die Release-Pipeline schlug fehl, weil `build.publish.draft` in electron-builder 26 nicht mehr existiert (umbenannt zu `releaseType`). Config korrigiert.
 
 ## v0.5.0
 - Eigener Autostart-Umschalter für Purgo selbst

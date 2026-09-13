@@ -977,10 +977,19 @@ async function loadSettingsView() {
   const settings = await window.purgo.getSettings();
 
   document.getElementById('setting-minimize-tray').checked = settings.minimizeToTray;
+  document.getElementById('setting-auto-check-updates').checked = settings.autoCheckUpdates;
   document.getElementById('setting-scheduler-enabled').checked = settings.scheduler.enabled;
   document.getElementById('setting-scheduler-frequency').value = settings.scheduler.frequency;
   document.getElementById('scheduler-last-run').textContent = `Letzter automatischer Lauf: ${formatDate(settings.scheduler.lastRun)}`;
   document.getElementById('setting-language').value = getCurrentLanguage();
+
+  try {
+    document.getElementById('setting-self-startup').checked = await window.purgo.getSelfStartup();
+  } catch {
+    document.getElementById('setting-self-startup').checked = false;
+  }
+
+  renderCustomRulesList(settings.customRules);
 
   document.getElementById('setting-pin-enabled').checked = settings.security.pinEnabled;
   document.getElementById('pin-change-btn').hidden = !settings.security.pinEnabled;
@@ -1132,10 +1141,14 @@ document.getElementById('update-check-btn').addEventListener('click', async () =
 
 window.purgo.onUpdateStatus((status) => {
   const statusEl = document.getElementById('update-status');
-  if (!statusEl) return;
-  if (status.status === 'available') statusEl.textContent = `Update verfügbar: v${status.version}`;
-  else if (status.status === 'not-available') statusEl.textContent = 'Du hast bereits die neueste Version.';
-  else if (status.status === 'error') statusEl.textContent = `Fehler: ${status.error}`;
+  if (status.status === 'available') {
+    if (statusEl) statusEl.textContent = `Update verfügbar: v${status.version}`;
+    toast(`Update verfügbar: v${status.version}`, 'success');
+  } else if (status.status === 'not-available') {
+    if (statusEl) statusEl.textContent = 'Du hast bereits die neueste Version.';
+  } else if (status.status === 'error') {
+    if (statusEl) statusEl.textContent = `Fehler: ${status.error}`;
+  }
 });
 
 // ---------- Admin-Rechte ----------
@@ -1623,6 +1636,263 @@ function initOnboarding() {
     }
   });
 }
+
+// ---------- Sicherheit ----------
+async function loadBitLockerStatus() {
+  const list = document.getElementById('bitlocker-list');
+  list.innerHTML = '';
+  try {
+    const volumes = await window.purgo.getBitLockerStatus();
+    if (volumes.length === 0) {
+      list.appendChild(el('div', 'empty-hint', 'Nicht verfügbar (evtl. Windows Home).'));
+      return;
+    }
+    for (const vol of volumes) {
+      const row = el('div', 'item-row');
+      row.appendChild(el('div', 'item-main', vol.mountPoint));
+      row.appendChild(el('span', `badge ${vol.protectionOn ? 'risk-safe' : 'outdated'}`, vol.protectionOn ? 'Verschlüsselt' : 'Nicht verschlüsselt'));
+      list.appendChild(row);
+    }
+  } catch {
+    list.innerHTML = '';
+    list.appendChild(el('div', 'empty-hint', 'Nicht verfügbar auf diesem System.'));
+  }
+}
+
+async function loadFirewallStatus() {
+  const list = document.getElementById('firewall-list');
+  list.innerHTML = '';
+  try {
+    const profiles = await window.purgo.getFirewallStatus();
+    for (const profile of profiles) {
+      const row = el('div', 'item-row');
+      row.appendChild(el('div', 'item-main', profile.profile));
+      row.appendChild(el('span', `badge ${profile.enabled ? 'risk-safe' : 'outdated'}`, profile.enabled ? 'Aktiv' : 'Inaktiv'));
+      list.appendChild(row);
+    }
+  } catch {
+    list.innerHTML = '';
+    list.appendChild(el('div', 'empty-hint', 'Nicht verfügbar.'));
+  }
+}
+
+async function loadDiagnosticData() {
+  try {
+    const data = await window.purgo.getDiagnosticDataLevel();
+    document.getElementById('diagnostics-value').textContent = data.label;
+  } catch {
+    document.getElementById('diagnostics-value').textContent = 'Unbekannt';
+  }
+}
+
+document.getElementById('diagnostics-open-btn').addEventListener('click', () => {
+  window.purgo.openExternal('ms-settings:privacy-diagnosticsfeedback');
+});
+
+let restorePointItems = [];
+
+function renderRestorePointsList() {
+  const list = document.getElementById('restore-points-list');
+  list.innerHTML = '';
+  if (restorePointItems.length === 0) {
+    list.appendChild(el('div', 'empty-hint', 'Keine Wiederherstellungspunkte gefunden.'));
+    return;
+  }
+  for (const point of restorePointItems) {
+    const row = el('div', 'item-row');
+    const main = el('div', 'item-main');
+    main.appendChild(el('div', 'item-label', point.description || `Punkt #${point.sequenceNumber}`));
+    main.appendChild(el('div', 'item-desc', formatDate(point.createdAt)));
+    row.appendChild(main);
+
+    const restoreBtn = el('button', 'btn btn-small btn-danger', 'Wiederherstellen');
+    restoreBtn.addEventListener('click', async () => {
+      const confirmed = await showConfirm(
+        `Wirklich auf "${point.description}" zurücksetzen? Der PC startet SOFORT neu, ungespeicherte Arbeit geht verloren.`,
+        { danger: true, confirmLabel: 'Jetzt neu starten und wiederherstellen' }
+      );
+      if (!confirmed) return;
+      const allowed = await requirePinIfEnabled('System-Wiederherstellung');
+      if (!allowed) return;
+      const confirmedAgain = await showConfirm('Letzte Warnung: Der PC startet jetzt neu. Fortfahren?', { danger: true, confirmLabel: 'Ja, neu starten' });
+      if (!confirmedAgain) return;
+      await window.purgo.restoreToPoint(point.sequenceNumber);
+    });
+    row.appendChild(restoreBtn);
+
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('restore-list-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('restore-list-btn');
+  btn.disabled = true;
+  try {
+    restorePointItems = await window.purgo.listRestorePoints();
+    renderRestorePointsList();
+  } catch (err) {
+    toast(`Fehler: ${err.message || err}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('restore-create-btn').addEventListener('click', async () => {
+  const description = await showPrompt('Beschreibung für den Wiederherstellungspunkt:', { title: 'Neuer Wiederherstellungspunkt' });
+  if (!description) return;
+  const btn = document.getElementById('restore-create-btn');
+  btn.disabled = true;
+  btn.textContent = 'Erstelle…';
+  try {
+    await window.purgo.createRestorePoint(description);
+    toast('Wiederherstellungspunkt erstellt (Windows erlaubt max. 1 pro 24h).', 'success');
+  } catch (err) {
+    toast(`Fehler: ${err.message || err}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Neuen Punkt erstellen';
+  }
+});
+
+// ---------- Netzwerk ----------
+document.getElementById('network-scan-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('network-scan-btn');
+  btn.disabled = true;
+  btn.textContent = 'Scanne…';
+  const list = document.getElementById('network-list');
+  list.innerHTML = '';
+  list.appendChild(el('div', 'empty-hint', 'Scan läuft…'));
+  try {
+    const connections = await window.purgo.listConnections();
+    list.innerHTML = '';
+    if (connections.length === 0) {
+      list.appendChild(el('div', 'empty-hint', 'Keine aktiven Verbindungen gefunden.'));
+    }
+    for (const conn of connections) {
+      const row = el('div', 'item-row');
+      const main = el('div', 'item-main');
+      main.appendChild(el('div', 'item-label', conn.processName));
+      main.appendChild(el('div', 'item-desc', `${conn.localAddress}:${conn.localPort} → ${conn.remoteAddress}:${conn.remotePort}`));
+      row.appendChild(main);
+      list.appendChild(row);
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Scan starten';
+  }
+});
+
+document.getElementById('network-flush-dns-btn').addEventListener('click', async () => {
+  try {
+    await window.purgo.flushDns();
+    toast('DNS-Cache geleert.', 'success');
+  } catch (err) {
+    toast(`Fehler: ${err.message || err}`, 'error');
+  }
+});
+
+document.getElementById('network-reset-winsock-btn').addEventListener('click', async () => {
+  const confirmed = await showConfirm('Winsock zurücksetzen? Dafür ist ein Neustart des PCs erforderlich, damit es wirkt.', { danger: true, confirmLabel: 'Zurücksetzen' });
+  if (!confirmed) return;
+  try {
+    await window.purgo.resetWinsock();
+    toast('Winsock zurückgesetzt. Bitte den PC neu starten, damit es wirkt.', 'success');
+  } catch (err) {
+    toast(`Fehler: ${err.message || err}`, 'error');
+  }
+});
+
+// ---------- Info ----------
+async function loadInfoPage() {
+  const version = await window.purgo.getVersion();
+  document.getElementById('info-version').textContent = `v${version}`;
+  const changelog = await window.purgo.getChangelog();
+  document.getElementById('changelog-text').textContent = changelog;
+}
+VIEW_LOADERS.info = loadInfoPage;
+VIEW_LOADERS.security = () => {
+  loadBitLockerStatus();
+  loadFirewallStatus();
+  loadDiagnosticData();
+};
+
+// ---------- Settings: Selbst-Autostart, eigene Regeln, Zurücksetzen ----------
+document.getElementById('setting-self-startup').addEventListener('change', async (e) => {
+  try {
+    await window.purgo.setSelfStartup(e.target.checked);
+  } catch (err) {
+    e.target.checked = !e.target.checked;
+    toast(`Fehler: ${err.message || err}`, 'error');
+  }
+});
+
+document.getElementById('setting-auto-check-updates').addEventListener('change', async (e) => {
+  await window.purgo.updateSettings({ autoCheckUpdates: e.target.checked });
+});
+
+function renderCustomRulesList(rules) {
+  const list = document.getElementById('custom-rules-list');
+  list.innerHTML = '';
+  if (!rules || rules.length === 0) {
+    list.appendChild(el('div', 'empty-hint', 'Keine eigenen Regeln konfiguriert.'));
+    return;
+  }
+  for (const rule of rules) {
+    const row = el('div', 'item-row');
+    const main = el('div', 'item-main');
+    main.appendChild(el('div', 'item-label', rule.label));
+    main.appendChild(el('div', 'item-desc', rule.targetPath));
+    row.appendChild(main);
+    row.appendChild(el('span', `badge risk-${rule.risk}`, rule.risk === 'safe' ? 'sicher' : 'prüfen'));
+    const removeBtn = el('button', 'btn btn-small btn-danger', 'Entfernen');
+    removeBtn.addEventListener('click', async () => {
+      const settings = await window.purgo.getSettings();
+      const updated = settings.customRules.filter((r) => r.id !== rule.id);
+      await window.purgo.updateSettings({ customRules: updated });
+      renderCustomRulesList(updated);
+    });
+    row.appendChild(removeBtn);
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('custom-rule-add-btn').addEventListener('click', async () => {
+  const kind = await showConfirm('Einen ganzen Ordner als Regel hinzufügen? ("Abbrechen" wählt stattdessen eine einzelne Datei.)', { confirmLabel: 'Ordner', cancelLabel: 'Datei' });
+  const targetPath = kind ? await window.purgo.pickCustomRuleFolder() : await window.purgo.pickCustomRuleFile();
+  if (!targetPath) return;
+
+  const label = await showPrompt('Name für diese Regel:', { title: 'Eigene Regel' });
+  if (!label) return;
+
+  const settings = await window.purgo.getSettings();
+  const rule = {
+    id: `${Date.now()}`,
+    label,
+    targetPath,
+    kind: kind ? 'dir' : 'file',
+    risk: 'medium',
+    defaultChecked: false
+  };
+  const updated = [...(settings.customRules || []), rule];
+  await window.purgo.updateSettings({ customRules: updated });
+  renderCustomRulesList(updated);
+  toast('Regel hinzugefügt – erscheint beim nächsten Junk-Scan.', 'success');
+});
+
+document.getElementById('reset-all-btn').addEventListener('click', async () => {
+  const confirmed = await showConfirm('Wirklich ALLE Purgo-Einstellungen, den Verlauf und den PIN löschen? Das kann nicht rückgängig gemacht werden.', { danger: true, confirmLabel: 'Zurücksetzen' });
+  if (!confirmed) return;
+  const allowed = await requirePinIfEnabled('Purgo zurücksetzen');
+  if (!allowed) return;
+  try {
+    await window.purgo.resetAll();
+    toast('Purgo wurde zurückgesetzt.', 'success');
+    loadSettingsView();
+    loadDashboard();
+  } catch (err) {
+    toast(`Fehler: ${err.message || err}`, 'error');
+  }
+});
 
 // ---------- Init ----------
 checkElevation();

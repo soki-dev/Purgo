@@ -7,6 +7,11 @@ function getToastContainer() {
   if (!toastContainer) {
     toastContainer = document.createElement('div');
     toastContainer.className = 'toast-container';
+    // aria-live sorgt dafür, dass Screenreader neue Toasts automatisch vorlesen,
+    // ohne dass der Nutzer selbst dorthin navigieren muss.
+    toastContainer.setAttribute('role', 'status');
+    toastContainer.setAttribute('aria-live', 'polite');
+    toastContainer.setAttribute('aria-atomic', 'true');
     document.body.appendChild(toastContainer);
   }
   return toastContainer;
@@ -29,16 +34,23 @@ function toast(message, type = 'info') {
 
 function openModal({ title, message, body, confirmLabel, cancelLabel, danger, inputType }) {
   return new Promise((resolve) => {
+    const previouslyFocused = document.activeElement;
+
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
 
     const card = document.createElement('div');
     card.className = 'modal-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
 
     if (title) {
       const h = document.createElement('div');
       h.className = 'modal-title';
       h.textContent = title;
+      const titleId = `modal-title-${Date.now()}`;
+      h.id = titleId;
+      card.setAttribute('aria-labelledby', titleId);
       card.appendChild(h);
     }
 
@@ -54,6 +66,7 @@ function openModal({ title, message, body, confirmLabel, cancelLabel, danger, in
       input = document.createElement('input');
       input.type = inputType;
       input.className = 'search-input modal-input';
+      if (title) input.setAttribute('aria-label', title);
       card.appendChild(input);
     }
 
@@ -65,6 +78,7 @@ function openModal({ title, message, body, confirmLabel, cancelLabel, danger, in
     const cleanup = (result) => {
       backdrop.remove();
       document.removeEventListener('keydown', onKeyDown);
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') previouslyFocused.focus();
       resolve(result);
     };
 
@@ -86,9 +100,34 @@ function openModal({ title, message, body, confirmLabel, cancelLabel, danger, in
     backdrop.appendChild(card);
     document.body.appendChild(backdrop);
 
+    function getFocusable() {
+      return Array.from(card.querySelectorAll('button, input, [tabindex]:not([tabindex="-1"])'));
+    }
+
     function onKeyDown(e) {
-      if (e.key === 'Escape') cleanup(inputType ? null : false);
-      if (e.key === 'Enter' && (!input || document.activeElement === input)) cleanup(inputType ? (input ? input.value : true) : true);
+      if (e.key === 'Escape') {
+        cleanup(inputType ? null : false);
+        return;
+      }
+      if (e.key === 'Enter' && (!input || document.activeElement === input)) {
+        cleanup(inputType ? (input ? input.value : true) : true);
+        return;
+      }
+      if (e.key === 'Tab') {
+        // Fokus innerhalb des Dialogs halten (einfache Focus-Trap), damit Tab
+        // nicht aus dem Modal heraus auf die Seite dahinter springt.
+        const focusable = getFocusable();
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
     document.addEventListener('keydown', onKeyDown);
 

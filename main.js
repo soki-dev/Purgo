@@ -14,7 +14,7 @@ const { listPrograms, uninstallProgram } = require('./src/engine/programsManager
 const { scanDrivers } = require('./src/engine/driverScanner');
 const { deleteFiles } = require('./src/engine/duplicateFinder');
 const { scanResidue, deleteResidue } = require('./src/engine/residueFinder');
-const { getSettings, updateSettings } = require('./src/engine/settingsStore');
+const { getSettings, updateSettings, resetSettings } = require('./src/engine/settingsStore');
 const { addEntry, listHistory, getTotals, clearHistory, toCsv, getDailyTrend } = require('./src/engine/historyStore');
 const { isPinEnabled, setPin, clearPin, verifyPin } = require('./src/engine/security');
 const { isElevated, relaunchElevated } = require('./src/engine/elevation');
@@ -35,6 +35,9 @@ const { isTaskRegistered, registerScheduledTask, unregisterScheduledTask } = req
 const { listAllExtensions, setExtensionEnabled } = require('./src/engine/browserExtensions');
 const { trimAllProcesses } = require('./src/engine/memoryCleaner');
 const { buildReportHtml } = require('./src/engine/reportBuilder');
+const { listRestorePoints, createRestorePoint, restoreToPoint } = require('./src/engine/restorePoints');
+const { getBitLockerStatus, getFirewallStatus, getDiagnosticDataLevel } = require('./src/engine/securityStatus');
+const { listConnections, flushDns, resetWinsock } = require('./src/engine/networkTools');
 
 let mainWindow;
 let tray;
@@ -105,6 +108,25 @@ async function runQuickClean() {
   return { freedBytes, itemCount: safeIds.length };
 }
 
+// CLI-Modus deckt bewusst nur lesende Scans plus die bereits als sicher geltende
+// Schnell-Reinigung ab - riskantere Aktionen (Registry löschen, Programme
+// deinstallieren, ...) bleiben der UI mit ihren Bestätigungs-/PIN-Abfragen
+// vorbehalten und werden hier nicht scriptbar gemacht.
+async function runCliCommand(command) {
+  switch (command) {
+    case 'scan-junk':
+      return scanJunk();
+    case 'quick-clean':
+      return runQuickClean();
+    case 'scan-registry':
+      return scanRegistry();
+    case 'scan-startup':
+      return scanStartup();
+    default:
+      throw new Error(`Unbekannter CLI-Befehl: ${command}. Verfügbar: scan-junk, quick-clean, scan-registry, scan-startup`);
+  }
+}
+
 function createTray() {
   tray = new Tray(path.join(__dirname, 'assets', 'tray-icon.png'));
   tray.setToolTip('Purgo');
@@ -158,6 +180,22 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
+    const cliCommand = extractArgValue(process.argv, '--cli');
+    if (cliCommand) {
+      // Headless Silent-Modus für Skripte: kein Fenster, Ergebnis geht in eine
+      // JSON-Datei statt stdout, weil gepackte Windows-GUI-Apps standardmäßig
+      // keine Konsole zum Aufrufer haben.
+      const outPath = extractArgValue(process.argv, '--out') || path.join(app.getPath('userData'), 'cli-result.json');
+      try {
+        const result = await runCliCommand(cliCommand);
+        fs.writeFileSync(outPath, JSON.stringify({ ok: true, command: cliCommand, result }, null, 2), 'utf8');
+      } catch (err) {
+        fs.writeFileSync(outPath, JSON.stringify({ ok: false, command: cliCommand, error: err.message }, null, 2), 'utf8');
+      }
+      app.quit();
+      return;
+    }
+
     if (hasFlag(process.argv, '--scheduled-clean')) {
       // Von der Windows-Aufgabenplanung ausgelöst, während Purgo nicht lief: läuft
       // komplett unsichtbar, zeigt nur eine Benachrichtigung und beendet sich danach.
@@ -171,11 +209,10 @@ if (!gotLock) {
     createTray();
 
     const analyzePath = extractArgValue(process.argv, '--analyze-path');
-    if (analyzePath) {
-      mainWindow.webContents.once('did-finish-load', () => {
-        mainWindow.webContents.send('shell:analyzePath', analyzePath);
-      });
-    }
+    mainWindow.webContents.once('did-finish-load', () => {
+      if (analyzePath) mainWindow.webContents.send('shell:analyzePath', analyzePath);
+      if (getSettings().autoCheckUpdates) autoUpdater.checkForUpdates().catch(() => {});
+    });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -612,6 +649,67 @@ ipcMain.handle('extensions:setEnabled', async (_event, { extension, enabled }) =
     summary: `Erweiterung ${enabled ? 'aktiviert' : 'deaktiviert'}: ${extension.name} (${extension.browser})`,
     details: { name: extension.name, browser: extension.browser, enabled }
   });
+  return result;
+});
+
+// --- Purgo-Selbstverwaltung ---
+ipcMain.handle('selfStartup:get', () => app.getLoginItemSettings().openAtLogin);
+ipcMain.handle('selfStartup:set', (_event, enabled) => {
+  app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath });
+  return { ok: true };
+});
+ipcMain.handle('app:resetAll', async () => {
+  await unregisterScheduledTask().catch(() => {});
+  clearHistory();
+  const settings = resetSettings();
+  return settings;
+});
+ipcMain.handle('app:getChangelog', () => {
+  try {
+    return fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8');
+  } catch {
+    return '';
+  }
+});
+ipcMain.handle('app:getVersion', () => app.getVersion());
+
+// --- Eigene Bereinigungsregeln ---
+ipcMain.handle('customRules:pickFolder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+ipcMain.handle('customRules:pickFile', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'] });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
+// --- Sicherheit ---
+ipcMain.handle('security:listRestorePoints', () => listRestorePoints());
+ipcMain.handle('security:createRestorePoint', async (_event, description) => {
+  const result = await createRestorePoint(description);
+  addEntry({ type: 'restore-point-create', category: 'program', summary: `Wiederherstellungspunkt erstellt: ${description}` });
+  return result;
+});
+ipcMain.handle('security:restoreToPoint', async (_event, sequenceNumber) => {
+  addEntry({ type: 'restore-point-restore', category: 'program', summary: `Wiederherstellung auf Punkt #${sequenceNumber} gestartet` });
+  return restoreToPoint(sequenceNumber);
+});
+ipcMain.handle('security:getBitLockerStatus', () => getBitLockerStatus());
+ipcMain.handle('security:getFirewallStatus', () => getFirewallStatus());
+ipcMain.handle('security:getDiagnosticDataLevel', () => getDiagnosticDataLevel());
+
+// --- Netzwerk ---
+ipcMain.handle('network:listConnections', () => listConnections());
+ipcMain.handle('network:flushDns', async () => {
+  const result = await flushDns();
+  addEntry({ type: 'dns-flush', category: 'program', summary: 'DNS-Cache geleert' });
+  return result;
+});
+ipcMain.handle('network:resetWinsock', async () => {
+  const result = await resetWinsock();
+  addEntry({ type: 'winsock-reset', category: 'program', summary: 'Winsock zurückgesetzt (Neustart erforderlich)' });
   return result;
 });
 

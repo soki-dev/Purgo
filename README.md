@@ -36,6 +36,13 @@ Windows-Aufräum- und Wartungstool (CCleaner-artiger Prototyp) auf Basis von Ele
 - **Browser-Erweiterungs-Manager** – installierte Erweiterungen aus Chrome/Edge/Firefox anzeigen; Aktivieren/Deaktivieren nur für Chrome/Edge unterstützt.
 - **Ähnlichkeits-Suche im Duplikat-Finder** – optionaler Bildvergleich (average hash) erkennt auch leicht unterschiedliche/komprimierte Bilder, nicht nur exakte Duplikate.
 - **Arbeitsspeicher-Cleaner** – Working-Set-Trimming per Klick (ehrlicher Hinweis: reduziert nur kurzzeitig den angezeigten Verbrauch, kein echter Speicher-Gewinn).
+- **Sicherheit-Ansicht** – System-Wiederherstellungspunkte erstellen/auflisten/wiederherstellen, BitLocker-Status, Firewall-Status je Profil, Windows-Diagnosedaten-Stufe.
+- **Netzwerk-Ansicht** – aktive Verbindungen je Prozess, DNS-Cache leeren, Winsock zurücksetzen.
+- **Purgo-Selbstverwaltung** – eigener Autostart-Umschalter für Purgo (`app.setLoginItemSettings`), „Zurücksetzen“-Button (PIN-geschützt falls aktiv), Info-Seite mit Changelog und Modulübersicht.
+- **Barrierefreiheit** – Fokus-Rückgabe und Tab-Trap in Dialogen, `aria-live` für Toasts, dekorative Icons als `aria-hidden` markiert (kein vollständiges WCAG-Audit).
+- **Eigene Bereinigungsregeln** – selbst gewählte Ordner/Dateien als zusätzliche Junk-Cleaner-Kategorie hinzufügen.
+- **Kommandozeilen-/Silent-Modus** – `Purgo.exe --cli <scan-junk|quick-clean|scan-registry|scan-startup> --out <datei.json>` führt das Kommando headless aus und schreibt das Ergebnis als JSON-Datei (kein stdout, siehe Einschränkungen).
+- **Automatischer Update-Check beim Start** – zusätzlich zum manuellen Button, zeigt bei gefundenem Update einen Toast.
 
 ## Sicherheitsprinzip
 
@@ -85,3 +92,7 @@ In `package.json` unter `build.publish` müssen `owner`/`repo` durch ein echtes 
 - Die Ähnlichkeits-Suche nutzt einen einfachen average-Hash (aHash), keinen vollen Perceptual-Hash-Standard – bei sehr ähnlichen, aber inhaltlich unterschiedlichen Bildern (z.B. Serienfotos) kann sie danebenliegen. Läuft zudem paarweise (O(n²)), bei sehr vielen Bildern entsprechend langsamer.
 - Der Arbeitsspeicher-Cleaner reduziert nur den kurzzeitig angezeigten Verbrauch (Working-Set-Trimming); Windows lädt ausgelagerte Seiten bei Bedarf sofort wieder nach.
 - Das Explorer-Kontextmenü lässt sich nur in der installierten (gepackten) Version registrieren, nicht im Dev-Modus (`npm start`).
+- Der CLI-Modus deckt bewusst nur lesende Scans und die bereits als sicher geltende Schnell-Reinigung ab; riskantere Aktionen bleiben absichtlich der UI mit ihren Bestätigungs-/PIN-Abfragen vorbehalten. Da gepackte Windows-GUI-Apps keine Konsole zum Aufrufer haben, wird das Ergebnis in eine JSON-Datei statt nach stdout geschrieben.
+- BitLocker-Status ist nur verfügbar, wenn das BitLocker-PowerShell-Modul existiert (fehlt z.B. auf manchen Windows-Home-Installationen).
+- Die Windows-Diagnosedaten-Stufe wird nur angezeigt, nicht direkt verändert – der Button öffnet stattdessen die echte Windows-Einstellungen-App, da die Registry-Verankerung je nach Windows-Version/Gruppenrichtlinie unterschiedlich ist.
+- Ein Wiederherstellungspunkt-Restore startet den PC sofort neu; Windows erlaubt zudem standardmäßig nur einen neuen Systemschutz-Wiederherstellungspunkt pro 24 Stunden.

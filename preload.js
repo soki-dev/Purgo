@@ -87,5 +87,25 @@ contextBridge.exposeInMainWorld('purgo', {
 
   onAnalyzePath: (cb) => on('shell:analyzePath', cb),
 
+  getSelfStartup: () => ipcRenderer.invoke('selfStartup:get'),
+  setSelfStartup: (enabled) => ipcRenderer.invoke('selfStartup:set', enabled),
+  resetAll: () => ipcRenderer.invoke('app:resetAll'),
+  getChangelog: () => ipcRenderer.invoke('app:getChangelog'),
+  getVersion: () => ipcRenderer.invoke('app:getVersion'),
+
+  pickCustomRuleFolder: () => ipcRenderer.invoke('customRules:pickFolder'),
+  pickCustomRuleFile: () => ipcRenderer.invoke('customRules:pickFile'),
+
+  listRestorePoints: () => ipcRenderer.invoke('security:listRestorePoints'),
+  createRestorePoint: (description) => ipcRenderer.invoke('security:createRestorePoint', description),
+  restoreToPoint: (sequenceNumber) => ipcRenderer.invoke('security:restoreToPoint', sequenceNumber),
+  getBitLockerStatus: () => ipcRenderer.invoke('security:getBitLockerStatus'),
+  getFirewallStatus: () => ipcRenderer.invoke('security:getFirewallStatus'),
+  getDiagnosticDataLevel: () => ipcRenderer.invoke('security:getDiagnosticDataLevel'),
+
+  listConnections: () => ipcRenderer.invoke('network:listConnections'),
+  flushDns: () => ipcRenderer.invoke('network:flushDns'),
+  resetWinsock: () => ipcRenderer.invoke('network:resetWinsock'),
+
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
 });

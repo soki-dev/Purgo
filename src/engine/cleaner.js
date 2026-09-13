@@ -72,6 +72,18 @@ async function clean(selectedIds) {
       continue;
     }
 
+    if (id.startsWith('custom:')) {
+      const ruleId = id.slice('custom:'.length);
+      const rule = (settings.customRules || []).find((r) => r.id === ruleId);
+      if (!rule) {
+        results.push({ id, ok: false });
+        continue;
+      }
+      const r = rule.kind === 'file' ? cleanFile(rule.targetPath, settings) : cleanDirContents(rule.targetPath, settings);
+      results.push({ id, ok: true, ...r });
+      continue;
+    }
+
     const def = CATEGORY_DEFS.find((d) => d.id === id);
     if (!def) {
       results.push({ id, ok: false });

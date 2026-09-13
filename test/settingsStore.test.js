@@ -35,3 +35,14 @@ test('getSettings falls back to defaults when no settings file exists', () => {
   assert.equal(settings.minimizeToTray, true);
   assert.equal(settings.security.pinEnabled, false);
 });
+
+test('resetSettings wipes prior customizations back to defaults', () => {
+  reset();
+  const { updateSettings, resetSettings, getSettings } = require('../src/engine/settingsStore');
+  updateSettings({ minimizeToTray: false, security: { pinEnabled: true, pinHash: 'abc' }, customRules: [{ id: '1' }] });
+  const reset1 = resetSettings();
+  assert.equal(reset1.minimizeToTray, true);
+  assert.equal(reset1.security.pinEnabled, false);
+  assert.deepEqual(reset1.customRules, []);
+  assert.deepEqual(getSettings(), reset1);
+});

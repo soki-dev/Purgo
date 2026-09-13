@@ -134,6 +134,22 @@ async function scanJunk() {
     });
   }
 
+  for (const rule of settings.customRules || []) {
+    if (isExcluded(rule.targetPath, settings)) continue;
+    const { size, count } = statTarget(rule.targetPath, rule.kind, settings);
+    if (count === 0) continue;
+    items.push({
+      id: `custom:${rule.id}`,
+      label: rule.label,
+      description: `Eigene Regel: ${rule.targetPath}`,
+      path: rule.targetPath,
+      risk: rule.risk,
+      defaultChecked: rule.defaultChecked,
+      sizeBytes: size,
+      fileCount: count
+    });
+  }
+
   const recycleBin = await getRecycleBinStats();
   if (recycleBin.count > 0) {
     items.push({

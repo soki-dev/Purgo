@@ -14,36 +14,45 @@
         <span class="brand-name">Purgo</span>
       </div>
       <button class="nav-item active" data-view="dashboard">
-        <span class="nav-icon">◈</span> <span data-i18n="nav.dashboard">Dashboard</span>
+        <span class="nav-icon" aria-hidden="true">◈</span> <span data-i18n="nav.dashboard">Dashboard</span>
       </button>
       <button class="nav-item" data-view="cleaner">
-        <span class="nav-icon">✦</span> <span data-i18n="nav.cleaner">Cleaner</span>
+        <span class="nav-icon" aria-hidden="true">✦</span> <span data-i18n="nav.cleaner">Cleaner</span>
       </button>
       <button class="nav-item" data-view="registry">
-        <span class="nav-icon">⌂</span> <span data-i18n="nav.registry">Registry</span>
+        <span class="nav-icon" aria-hidden="true">⌂</span> <span data-i18n="nav.registry">Registry</span>
       </button>
       <button class="nav-item" data-view="startup">
-        <span class="nav-icon">⏻</span> <span data-i18n="nav.startup">Autostart &amp; Programme</span>
+        <span class="nav-icon" aria-hidden="true">⏻</span> <span data-i18n="nav.startup">Autostart &amp; Programme</span>
       </button>
       <button class="nav-item" data-view="duplicates">
-        <span class="nav-icon">▥</span> <span data-i18n="nav.duplicates">Duplikate</span>
+        <span class="nav-icon" aria-hidden="true">▥</span> <span data-i18n="nav.duplicates">Duplikate</span>
       </button>
       <button class="nav-item" data-view="space">
-        <span class="nav-icon">◫</span> <span data-i18n="nav.space">Speicherplatz</span>
+        <span class="nav-icon" aria-hidden="true">◫</span> <span data-i18n="nav.space">Speicherplatz</span>
       </button>
       <button class="nav-item" data-view="services">
-        <span class="nav-icon">▤</span> <span data-i18n="nav.services">Dienste</span>
+        <span class="nav-icon" aria-hidden="true">▤</span> <span data-i18n="nav.services">Dienste</span>
       </button>
       <button class="nav-item" data-view="drivers">
-        <span class="nav-icon">⛭</span> <span data-i18n="nav.drivers">Treiber</span>
+        <span class="nav-icon" aria-hidden="true">⛭</span> <span data-i18n="nav.drivers">Treiber</span>
+      </button>
+      <button class="nav-item" data-view="security">
+        <span class="nav-icon" aria-hidden="true">🛡</span> <span data-i18n="nav.security">Sicherheit</span>
+      </button>
+      <button class="nav-item" data-view="network">
+        <span class="nav-icon" aria-hidden="true">🌐</span> <span data-i18n="nav.network">Netzwerk</span>
       </button>
       <button class="nav-item" data-view="history">
-        <span class="nav-icon">☰</span> <span data-i18n="nav.history">Historie</span>
+        <span class="nav-icon" aria-hidden="true">☰</span> <span data-i18n="nav.history">Historie</span>
       </button>
       <button class="nav-item" data-view="settings">
-        <span class="nav-icon">⚙</span> <span data-i18n="nav.settings">Einstellungen</span>
+        <span class="nav-icon" aria-hidden="true">⚙</span> <span data-i18n="nav.settings">Einstellungen</span>
       </button>
-      <div class="sidebar-footer">v0.4.0 · Prototyp</div>
+      <button class="nav-item" data-view="info">
+        <span class="nav-icon" aria-hidden="true">ℹ</span> <span data-i18n="nav.info">Info</span>
+      </button>
+      <div class="sidebar-footer">v0.5.0 · Prototyp</div>
     </nav>
 
     <main class="content">
@@ -301,6 +310,53 @@
         <div class="item-list" id="drivers-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
       </section>
 
+      <!-- Security -->
+      <section class="view" id="view-security">
+        <header class="view-header">
+          <h1 data-i18n="security.title">Sicherheit</h1>
+        </header>
+
+        <div class="dashboard-extra-row">
+          <div class="stat-card">
+            <div class="stat-title" data-i18n="security.encryption">Laufwerksverschlüsselung</div>
+            <div class="item-list" id="bitlocker-list"><div class="empty-hint" data-i18n="common.loading">Lade…</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title" data-i18n="security.firewall">Firewall</div>
+            <div class="item-list" id="firewall-list"><div class="empty-hint" data-i18n="common.loading">Lade…</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title" data-i18n="security.diagnostics">Diagnosedaten</div>
+            <div class="item-desc" id="diagnostics-value">–</div>
+            <button class="btn btn-small" id="diagnostics-open-btn" data-i18n="security.diagnosticsOpen">Einstellungen öffnen</button>
+          </div>
+        </div>
+
+        <h2 class="section-title" data-i18n="security.restorePoints">System-Wiederherstellungspunkte</h2>
+        <p class="hint" data-i18n="security.restoreHint">Zusätzliches Sicherheitsnetz neben den automatischen .reg-Backups. Wiederherstellen startet den PC sofort neu – nicht versehentlich klicken!</p>
+        <div class="header-actions inline">
+          <button class="btn btn-ghost" id="restore-list-btn" data-i18n="common.startScan">Liste laden</button>
+          <button class="btn btn-ghost" id="restore-create-btn" data-i18n="security.createRestorePoint">Neuen Punkt erstellen</button>
+        </div>
+        <div class="item-list" id="restore-points-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+      </section>
+
+      <!-- Network -->
+      <section class="view" id="view-network">
+        <header class="view-header">
+          <h1 data-i18n="network.title">Netzwerk</h1>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="network-flush-dns-btn" data-i18n="network.flushDns">DNS-Cache leeren</button>
+            <button class="btn btn-ghost" id="network-reset-winsock-btn" data-i18n="network.resetWinsock">Winsock zurücksetzen</button>
+          </div>
+        </header>
+        <p class="hint" data-i18n="network.hint">Zeigt aktive Netzwerkverbindungen mit dem jeweiligen Prozess. Winsock-Reset erfordert einen Neustart, um zu wirken.</p>
+        <div class="header-actions inline">
+          <button class="btn btn-ghost" id="network-scan-btn" data-i18n="common.startScan">Scan starten</button>
+        </div>
+        <div class="item-list" id="network-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+      </section>
+
       <!-- History -->
       <section class="view" id="view-history">
         <header class="view-header">
@@ -358,6 +414,16 @@
         </div>
         <div class="settings-row">
           <div class="settings-label">
+            <div class="item-label" data-i18n="settings.selfStartup">Purgo mit Windows starten</div>
+            <div class="item-desc" data-i18n="settings.selfStartupDesc">Startet Purgo automatisch im Hintergrund, wenn du dich bei Windows anmeldest. Funktioniert nur in der installierten Version.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setting-self-startup" />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
             <div class="item-label" data-i18n="settings.language">Sprache</div>
           </div>
           <select class="search-input" id="setting-language">
@@ -405,6 +471,15 @@
         </div>
 
         <h2 class="section-title" data-i18n="settings.updates">Updates</h2>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.autoCheckUpdates">Beim Start automatisch prüfen</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setting-auto-check-updates" />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
         <div class="header-actions inline">
           <button class="btn btn-ghost" id="update-check-btn" data-i18n="settings.checkUpdate">Nach Updates suchen</button>
         </div>
@@ -437,6 +512,47 @@
           <button class="btn btn-ghost" id="settings-import-btn" data-i18n="settings.importBtn">Importieren…</button>
         </div>
         <p class="hint" data-i18n="settings.backupHint">Sichert alle Einstellungen, Ausschlüsse und den PIN-Status als eine Datei – nützlich zum Übertragen auf einen anderen Rechner.</p>
+
+        <h2 class="section-title" data-i18n="settings.customRules">Eigene Bereinigungsregeln</h2>
+        <p class="hint" data-i18n="settings.customRulesHint">Eigene Ordner/Dateien als zusätzliche Kategorie im Junk-Cleaner hinzufügen.</p>
+        <div class="header-actions inline">
+          <button class="btn btn-ghost" id="custom-rule-add-btn" data-i18n="settings.customRuleAdd">Regel hinzufügen…</button>
+        </div>
+        <div class="item-list" id="custom-rules-list"><div class="empty-hint" data-i18n="settings.customRulesEmpty">Keine eigenen Regeln konfiguriert.</div></div>
+
+        <h2 class="section-title" data-i18n="settings.dangerZone">Gefahrenzone</h2>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.resetTitle">Purgo zurücksetzen</div>
+            <div class="item-desc" data-i18n="settings.resetDesc">Löscht alle Einstellungen, Ausschlüsse, den Verlauf und den PIN. Registry-Backups und Berichte bleiben erhalten.</div>
+          </div>
+          <button class="btn btn-danger" id="reset-all-btn" data-i18n="settings.resetBtn">Zurücksetzen</button>
+        </div>
+      </section>
+
+      <!-- Info -->
+      <section class="view" id="view-info">
+        <header class="view-header">
+          <h1 data-i18n="info.title">Info</h1>
+        </header>
+        <p class="item-desc">Purgo <span id="info-version"></span></p>
+
+        <h2 class="section-title" data-i18n="info.modules">Module im Überblick</h2>
+        <div class="item-list">
+          <div class="item-row"><div class="item-main"><div class="item-label">Cleaner</div><div class="item-desc" data-i18n="info.moduleCleaner">Temp-Dateien, Browser-Caches, Cookies/Verlauf und eigene Regeln bereinigen.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label">Registry</div><div class="item-desc" data-i18n="info.moduleRegistry">Verwaiste Registry-Einträge finden und mit automatischem Backup entfernen.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label" data-i18n="nav.startup">Autostart &amp; Programme</div><div class="item-desc" data-i18n="info.moduleStartup">Autostart-Einträge, installierte Programme, Software-Reste und den Performance-Modus verwalten.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label" data-i18n="nav.duplicates">Duplikate</div><div class="item-desc" data-i18n="info.moduleDuplicates">Doppelte und ähnliche Dateien in einem gewählten Ordner finden.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label" data-i18n="nav.space">Speicherplatz</div><div class="item-desc" data-i18n="info.moduleSpace">Größte Ordner und Dateien pro Ebene mit Drill-down erkunden.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label" data-i18n="nav.services">Dienste</div><div class="item-desc" data-i18n="info.moduleServices">Windows-Dienste anzeigen, starten/stoppen und den Starttyp ändern.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label" data-i18n="nav.drivers">Treiber</div><div class="item-desc" data-i18n="info.moduleDrivers">Alter installierter Treiber prüfen und zur Hersteller-Suche verlinken.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label" data-i18n="nav.security">Sicherheit</div><div class="item-desc" data-i18n="info.moduleSecurity">Wiederherstellungspunkte, Verschlüsselung, Firewall und Diagnosedaten im Blick behalten.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label" data-i18n="nav.network">Netzwerk</div><div class="item-desc" data-i18n="info.moduleNetwork">Aktive Verbindungen einsehen, DNS-Cache leeren, Winsock zurücksetzen.</div></div></div>
+          <div class="item-row"><div class="item-main"><div class="item-label" data-i18n="nav.history">Historie</div><div class="item-desc" data-i18n="info.moduleHistory">Protokoll aller Scans und Aktionen, filter- und exportierbar.</div></div></div>
+        </div>
+
+        <h2 class="section-title" data-i18n="info.changelog">Changelog</h2>
+        <pre class="item-desc" id="changelog-text" style="white-space: pre-wrap; font-family: inherit;"></pre>
       </section>
 
       <!-- Onboarding -->

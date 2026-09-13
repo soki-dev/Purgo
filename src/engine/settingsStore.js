@@ -5,6 +5,7 @@ const { app } = require('electron');
 const DEFAULT_SETTINGS = {
   excludedPaths: [],
   minimizeToTray: true,
+  autoCheckUpdates: true,
   scheduler: {
     enabled: false,
     frequency: 'weekly', // 'daily' | 'weekly'
@@ -13,7 +14,8 @@ const DEFAULT_SETTINGS = {
   security: {
     pinEnabled: false,
     pinHash: null
-  }
+  },
+  customRules: [] // { id, label, targetPath, kind: 'dir' | 'file', risk: 'safe' | 'medium', defaultChecked }
 };
 
 function getSettingsPath() {
@@ -58,4 +60,9 @@ function isExcluded(targetPath, settings) {
   return excluded.some((p) => normalizedTarget.startsWith(path.normalize(p).toLowerCase()));
 }
 
-module.exports = { getSettings, updateSettings, isExcluded, getSettingsPath };
+function resetSettings() {
+  saveSettings({ ...DEFAULT_SETTINGS });
+  return { ...DEFAULT_SETTINGS };
+}
+
+module.exports = { getSettings, updateSettings, isExcluded, getSettingsPath, resetSettings, DEFAULT_SETTINGS };

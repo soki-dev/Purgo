@@ -49,6 +49,30 @@ function clearHistory() {
   saveHistory([]);
 }
 
+// Aggregiert freigegebene Bytes pro Kalendertag für die letzten `days` Tage,
+// älteste zuerst - direkt als Balken-Reihenfolge für ein Trend-Diagramm nutzbar.
+function getDailyTrend(days = 14) {
+  const entries = loadHistory();
+  const buckets = new Map();
+  const now = new Date();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    buckets.set(key, 0);
+  }
+
+  for (const entry of entries) {
+    const key = (entry.timestamp || '').slice(0, 10);
+    if (buckets.has(key)) {
+      buckets.set(key, buckets.get(key) + (entry.freedBytes || 0));
+    }
+  }
+
+  return Array.from(buckets.entries()).map(([date, freedBytes]) => ({ date, freedBytes }));
+}
+
 function csvEscape(value) {
   const str = String(value ?? '');
   if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
@@ -69,4 +93,4 @@ function toCsv() {
   return [header, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n');
 }
 
-module.exports = { addEntry, listHistory, getTotals, clearHistory, toCsv, csvEscape };
+module.exports = { addEntry, listHistory, getTotals, clearHistory, toCsv, csvEscape, getDailyTrend };

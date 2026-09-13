@@ -1,7 +1,7 @@
 {
   "name": "purgo",
   "productName": "Purgo",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Windows-Aufräum- und Wartungstool: Junk-Cleaner, Registry-Cleaner, Autostart- & Programm-Manager, Treiber-Check.",
   "author": "Tino",
   "main": "main.js",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
-    "node-cron": "^3.0.3"
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "electron": "^32.0.0",

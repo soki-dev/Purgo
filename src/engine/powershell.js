@@ -3,12 +3,12 @@ const { execFile } = require('child_process');
 const PS_TIMEOUT_MS = 25_000;
 const PS_MAX_BUFFER = 10 * 1024 * 1024;
 
-function runPowerShell(script) {
+function runPowerShell(script, timeout = PS_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
     execFile(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
-      { timeout: PS_TIMEOUT_MS, maxBuffer: PS_MAX_BUFFER, windowsHide: true },
+      { timeout, maxBuffer: PS_MAX_BUFFER, windowsHide: true },
       (err, stdout, stderr) => {
         if (err && !stdout) return reject(err);
         resolve(stdout);

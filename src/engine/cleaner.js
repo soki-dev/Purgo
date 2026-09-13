@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { runPowerShell } = require('./powershell');
 const { CATEGORY_DEFS } = require('./junkCategories');
-const { listFirefoxProfiles } = require('./junkScanner');
+const { listFirefoxProfiles, resolveFirefoxProfileBase } = require('./junkScanner');
 const { getSettings, isExcluded } = require('./settingsStore');
 
 function cleanDirContents(dirPath, settings) {
@@ -82,8 +82,9 @@ async function clean(selectedIds) {
       let freedBytes = 0;
       let deletedFiles = 0;
       let errors = 0;
+      const base = resolveFirefoxProfileBase(def.base);
       for (const profile of listFirefoxProfiles()) {
-        const target = path.join(profile, def.relativeTarget);
+        const target = path.join(base, profile, def.relativeTarget);
         if (!fs.existsSync(target)) continue;
         const r = def.fileKind === 'dir' ? cleanDirContents(target, settings) : cleanFile(target, settings);
         freedBytes += r.freedBytes;

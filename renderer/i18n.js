@@ -31,6 +31,12 @@ const TRANSLATIONS = {
     'dashboard.lifetime': 'Bisher freigegeben',
     'dashboard.recentActions': 'Letzte Aktionen',
     'dashboard.noActions': 'Noch keine Aktionen.',
+    'dashboard.exportReport': 'Bericht exportieren',
+    'dashboard.diskHealth': 'Datenträger-Gesundheit',
+    'dashboard.bootTime': 'Letzte Boot-Zeit',
+    'dashboard.windowsUpdate': 'Windows-Updates',
+    'dashboard.checkUpdates': 'Prüfen',
+    'dashboard.trend': 'Freigegebener Speicher (letzte 14 Tage)',
 
     'common.loading': 'Lade Systeminformationen…',
     'common.startScan': 'Scan starten',
@@ -50,6 +56,7 @@ const TRANSLATIONS = {
     'startup.tabPrograms': 'Installierte Programme',
     'startup.tabResidue': 'Programm-Reste',
     'startup.tabPerformance': 'Performance-Modus',
+    'startup.tabExtensions': 'Erweiterungen',
     'startup.loadPrograms': 'Programme laden',
     'startup.searchPlaceholder': 'Programm suchen…',
     'startup.noProgramsYet': 'Noch keine Liste geladen.',
@@ -59,6 +66,9 @@ const TRANSLATIONS = {
     'duplicates.hint': 'Dateien werden per Inhalts-Hash verglichen (nicht nur Name/Größe). Pro Gruppe bleibt mindestens eine Kopie erhalten – die erste Datei ist immer vorausgewählt zum Behalten.',
     'duplicates.noFolder': 'Kein Ordner ausgewählt.',
     'duplicates.pickFirst': 'Wähle zuerst einen Ordner aus.',
+    'duplicates.similarTitle': 'Ähnliche Bilder einbeziehen (experimentell)',
+    'duplicates.similarDesc': 'Erkennt auch leicht unterschiedliche/komprimierte Bilder per Bildvergleich, nicht nur exakte 1:1-Duplikate. Kann bei großen Ordnern länger dauern.',
+    'duplicates.similarResultsTitle': 'Ähnliche Bilder',
 
     'space.title': 'Speicherplatz-Analyzer',
     'space.hint': 'Zeigt die größten Ordner und Dateien einer Ebene. Auf einen Ordner klicken, um hineinzugehen.',
@@ -72,6 +82,12 @@ const TRANSLATIONS = {
     'performance.balanced': 'Ausbalanciert',
     'performance.highPerformance': 'Höchstleistung',
     'performance.backgroundApps': 'Sichtbare Hintergrund-Apps',
+    'performance.memoryTitle': 'Arbeitsspeicher-Cleaner',
+    'performance.memoryDesc': 'Reduziert kurzzeitig den angezeigten Speicherverbrauch (Working-Set-Trimming). Windows lädt bei Bedarf sofort wieder nach – der reale Nutzen ist begrenzt.',
+    'performance.memoryRun': 'Jetzt ausführen',
+
+    'extensions.hint': 'Installierte Erweiterungen aus Chrome, Edge und Firefox. Deaktivieren funktioniert nur für Chrome/Edge und nur bei geschlossenem Browser; Firefox-Erweiterungen bitte über about:addons verwalten.',
+    'extensions.load': 'Erweiterungen laden',
 
     'services.title': 'Windows-Dienste',
     'services.load': 'Dienste laden',
@@ -118,7 +134,17 @@ const TRANSLATIONS = {
     'settings.excludeList': 'Ausschlussliste',
     'settings.excludeHint': 'Ordner hier drin werden von Junk-Scan und Duplikat-Finder komplett ignoriert.',
     'settings.excludeAdd': 'Ordner hinzufügen…',
-    'settings.excludeEmpty': 'Keine Ausschlüsse konfiguriert.'
+    'settings.excludeEmpty': 'Keine Ausschlüsse konfiguriert.',
+    'settings.integration': 'Integration',
+    'settings.contextMenu': 'Explorer-Kontextmenü',
+    'settings.contextMenuDesc': 'Fügt „Mit Purgo analysieren“ zum Rechtsklick-Menü von Ordnern hinzu (springt in den Speicherplatz-Analyzer). Nur in der installierten Version verfügbar.',
+    'settings.backupTitle': 'Einstellungen sichern',
+    'settings.exportBtn': 'Exportieren…',
+    'settings.importBtn': 'Importieren…',
+    'settings.backupHint': 'Sichert alle Einstellungen, Ausschlüsse und den PIN-Status als eine Datei – nützlich zum Übertragen auf einen anderen Rechner.',
+
+    'onboarding.skip': 'Überspringen',
+    'onboarding.next': 'Weiter'
   },
   en: {
     'nav.dashboard': 'Dashboard',
@@ -148,6 +174,12 @@ const TRANSLATIONS = {
     'dashboard.lifetime': 'Freed so far',
     'dashboard.recentActions': 'Recent actions',
     'dashboard.noActions': 'No actions yet.',
+    'dashboard.exportReport': 'Export report',
+    'dashboard.diskHealth': 'Disk health',
+    'dashboard.bootTime': 'Last boot time',
+    'dashboard.windowsUpdate': 'Windows Update',
+    'dashboard.checkUpdates': 'Check',
+    'dashboard.trend': 'Freed space (last 14 days)',
 
     'common.loading': 'Loading system info…',
     'common.startScan': 'Start scan',
@@ -167,6 +199,7 @@ const TRANSLATIONS = {
     'startup.tabPrograms': 'Installed Programs',
     'startup.tabResidue': 'Leftover Files',
     'startup.tabPerformance': 'Performance Mode',
+    'startup.tabExtensions': 'Extensions',
     'startup.loadPrograms': 'Load programs',
     'startup.searchPlaceholder': 'Search program…',
     'startup.noProgramsYet': 'No list loaded yet.',
@@ -176,6 +209,9 @@ const TRANSLATIONS = {
     'duplicates.hint': 'Files are compared by content hash (not just name/size). One copy per group is always kept – the first file is pre-selected to keep.',
     'duplicates.noFolder': 'No folder selected.',
     'duplicates.pickFirst': 'Choose a folder first.',
+    'duplicates.similarTitle': 'Include similar images (experimental)',
+    'duplicates.similarDesc': 'Also detects slightly different/compressed images via image comparison, not just exact 1:1 duplicates. Can take longer on large folders.',
+    'duplicates.similarResultsTitle': 'Similar images',
 
     'space.title': 'Disk Space Analyzer',
     'space.hint': 'Shows the largest folders and files at one level. Click a folder to drill in.',
@@ -189,6 +225,12 @@ const TRANSLATIONS = {
     'performance.balanced': 'Balanced',
     'performance.highPerformance': 'High performance',
     'performance.backgroundApps': 'Visible background apps',
+    'performance.memoryTitle': 'Memory cleaner',
+    'performance.memoryDesc': 'Briefly reduces the reported memory usage (working-set trimming). Windows reloads pages on demand right away – the real-world benefit is limited.',
+    'performance.memoryRun': 'Run now',
+
+    'extensions.hint': 'Installed extensions from Chrome, Edge and Firefox. Disabling only works for Chrome/Edge and only while the browser is closed; manage Firefox extensions via about:addons.',
+    'extensions.load': 'Load extensions',
 
     'services.title': 'Windows Services',
     'services.load': 'Load services',
@@ -235,7 +277,17 @@ const TRANSLATIONS = {
     'settings.excludeList': 'Exclusion list',
     'settings.excludeHint': 'Folders in here are completely ignored by the junk scan and duplicate finder.',
     'settings.excludeAdd': 'Add folder…',
-    'settings.excludeEmpty': 'No exclusions configured.'
+    'settings.excludeEmpty': 'No exclusions configured.',
+    'settings.integration': 'Integration',
+    'settings.contextMenu': 'Explorer context menu',
+    'settings.contextMenuDesc': 'Adds "Analyze with Purgo" to the right-click menu of folders (jumps to the disk space analyzer). Only available in the installed version.',
+    'settings.backupTitle': 'Back up settings',
+    'settings.exportBtn': 'Export…',
+    'settings.importBtn': 'Import…',
+    'settings.backupHint': 'Saves all settings, exclusions and PIN status as one file – useful for transferring to another machine.',
+
+    'onboarding.skip': 'Skip',
+    'onboarding.next': 'Next'
   }
 };
 

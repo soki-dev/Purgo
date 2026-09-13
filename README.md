@@ -22,6 +22,20 @@ Windows-Aufräum- und Wartungstool (CCleaner-artiger Prototyp) auf Basis von Ele
 - **Theming** – Dunkel/Hell/System-Modus plus fünf Akzentfarben, per Klick umschaltbar.
 - **Mehrsprachigkeit** – Oberfläche auf Deutsch/Englisch umschaltbar. Backend-Texte (Scan-Ergebnisse, Kategorie-Beschreibungen) sind aktuell nur auf Deutsch.
 - **Auto-Update-Grundgerüst** – `electron-updater` ist verdrahtet, benötigt aber ein echtes, konfiguriertes GitHub-Release-Repository (siehe unten).
+- **Echte Boot-Zeit-Messung** – liest die tatsächliche letzte Boot-Dauer aus dem Windows-Ereignisprotokoll (Diagnostics-Performance) statt sie zu schätzen.
+- **Windows-Update-Übersicht** – zeigt ausstehende Updates an (nur Anzeige, kein automatisches Installieren, Suche kann bis zu 2 Minuten dauern).
+- **Datenträger-Gesundheit** – S.M.A.R.T.-nahe Statusanzeige je Festplatte/SSD über `Get-PhysicalDisk`.
+- **Warnung bei vollem Datenträger** – Dashboard-Banner plus Windows-Benachrichtigung, sobald ein Laufwerk ≥ 90% voll ist.
+- **Verlaufs-Trend-Diagramm** – kleines Balkendiagramm: freigegebener Speicher der letzten 14 Tage.
+- **Exportierbarer System-Health-Report** – Dashboard-Snapshot plus Verlauf als eigenständige HTML-Datei.
+- **Geführter Ersteinrichtungs-Assistent** – kurze Tour beim allerersten Start (einmalig, per `localStorage`-Flag).
+- **Explorer-Kontextmenü** – optionales „Mit Purgo analysieren“ im Rechtsklick-Menü von Ordnern, springt in den Speicherplatz-Analyzer. Nur in der installierten Version verfügbar, nicht im Dev-Modus.
+- **Geplante Reinigung über die Windows-Aufgabenplanung** – läuft jetzt über eine native `schtasks`-Aufgabe statt eines In-App-Timers, funktioniert also auch, wenn Purgo gerade nicht offen ist. Startet dafür kurz unsichtbar mit `--scheduled-clean` und zeigt eine Benachrichtigung.
+- **Einstellungen exportieren/importieren** – komplette Konfiguration (inkl. Ausschlüsse und PIN-Hash) als eine JSON-Datei sichern oder auf einen anderen Rechner übertragen.
+- **„Lange nicht genutzt“ bei Programmen** – wertet den Windows-Nutzungsverlauf (UserAssist) aus, um anzuzeigen, wann ein installiertes Programm zuletzt gestartet wurde.
+- **Browser-Erweiterungs-Manager** – installierte Erweiterungen aus Chrome/Edge/Firefox anzeigen; Aktivieren/Deaktivieren nur für Chrome/Edge unterstützt.
+- **Ähnlichkeits-Suche im Duplikat-Finder** – optionaler Bildvergleich (average hash) erkennt auch leicht unterschiedliche/komprimierte Bilder, nicht nur exakte Duplikate.
+- **Arbeitsspeicher-Cleaner** – Working-Set-Trimming per Klick (ehrlicher Hinweis: reduziert nur kurzzeitig den angezeigten Verbrauch, kein echter Speicher-Gewinn).
 
 ## Sicherheitsprinzip
 
@@ -68,3 +82,6 @@ In `package.json` unter `build.publish` müssen `owner`/`repo` durch ein echtes 
 - Der PIN-Schutz ist eine zusätzliche Bestätigungs-Hürde, kein echter Zugriffsschutz (PIN-Hash liegt lokal in `settings.json`).
 - Auto-Update funktioniert erst, sobald ein echtes GitHub-Repository konfiguriert und Releases dorthin veröffentlicht wurden.
 - Ohne ein kostenpflichtiges Zertifikat einer echten Zertifizierungsstelle bleibt der Installer für andere Nutzer unsigniert – SmartScreen kann warnen.
+- Die Ähnlichkeits-Suche nutzt einen einfachen average-Hash (aHash), keinen vollen Perceptual-Hash-Standard – bei sehr ähnlichen, aber inhaltlich unterschiedlichen Bildern (z.B. Serienfotos) kann sie danebenliegen. Läuft zudem paarweise (O(n²)), bei sehr vielen Bildern entsprechend langsamer.
+- Der Arbeitsspeicher-Cleaner reduziert nur den kurzzeitig angezeigten Verbrauch (Working-Set-Trimming); Windows lädt ausgelagerte Seiten bei Bedarf sofort wieder nach.
+- Das Explorer-Kontextmenü lässt sich nur in der installierten (gepackten) Version registrieren, nicht im Dev-Modus (`npm start`).

@@ -43,7 +43,7 @@
       <button class="nav-item" data-view="settings">
         <span class="nav-icon">⚙</span> <span data-i18n="nav.settings">Einstellungen</span>
       </button>
-      <div class="sidebar-footer">v0.3.0 · Prototyp</div>
+      <div class="sidebar-footer">v0.4.0 · Prototyp</div>
     </nav>
 
     <main class="content">
@@ -56,8 +56,15 @@
       <section class="view active" id="view-dashboard">
         <header class="view-header">
           <h1 data-i18n="dashboard.title">Dashboard</h1>
-          <button class="btn btn-ghost" id="dashboard-refresh" data-i18n="dashboard.refresh">Aktualisieren</button>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="report-export-btn" data-i18n="dashboard.exportReport">Bericht exportieren</button>
+            <button class="btn btn-ghost" id="dashboard-refresh" data-i18n="dashboard.refresh">Aktualisieren</button>
+          </div>
         </header>
+
+        <div class="admin-banner" id="disk-warning-banner" hidden>
+          <span id="disk-warning-text"></span>
+        </div>
 
         <div class="health-card">
           <div class="health-score">
@@ -91,6 +98,26 @@
 
         <h2 class="section-title" data-i18n="dashboard.disks">Laufwerke</h2>
         <div class="disk-list" id="disk-list"><div class="empty-hint" data-i18n="common.loading">Lade Systeminformationen…</div></div>
+
+        <div class="dashboard-extra-row">
+          <div class="stat-card">
+            <div class="stat-title" data-i18n="dashboard.diskHealth">Datenträger-Gesundheit</div>
+            <div class="item-list" id="disk-health-list"><div class="empty-hint" data-i18n="common.loading">Lade…</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title" data-i18n="dashboard.bootTime">Letzte Boot-Zeit</div>
+            <div class="stat-value" id="boot-time-value">–</div>
+            <div class="item-desc" id="boot-time-trend"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title" data-i18n="dashboard.windowsUpdate">Windows-Updates</div>
+            <button class="btn btn-small" id="windows-update-check-btn" data-i18n="dashboard.checkUpdates">Prüfen</button>
+            <div class="item-desc" id="windows-update-result"></div>
+          </div>
+        </div>
+
+        <h2 class="section-title" data-i18n="dashboard.trend">Freigegebener Speicher (letzte 14 Tage)</h2>
+        <div id="trend-chart"></div>
 
         <div class="dashboard-history-row">
           <div class="history-block">
@@ -144,6 +171,7 @@
           <button class="subtab" data-subtab="programs" data-i18n="startup.tabPrograms">Installierte Programme</button>
           <button class="subtab" data-subtab="residue" data-i18n="startup.tabResidue">Programm-Reste</button>
           <button class="subtab" data-subtab="performance" data-i18n="startup.tabPerformance">Performance-Modus</button>
+          <button class="subtab" data-subtab="extensions" data-i18n="startup.tabExtensions">Erweiterungen</button>
         </div>
 
         <div class="subview active" id="subview-autostart">
@@ -182,11 +210,27 @@
               <button class="btn btn-primary" id="power-plan-high-btn" data-i18n="performance.highPerformance">Höchstleistung</button>
             </div>
           </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="item-label" data-i18n="performance.memoryTitle">Arbeitsspeicher-Cleaner</div>
+              <div class="item-desc" data-i18n="performance.memoryDesc">Reduziert kurzzeitig den angezeigten Speicherverbrauch (Working-Set-Trimming). Windows lädt bei Bedarf sofort wieder nach – der reale Nutzen ist begrenzt.</div>
+            </div>
+            <button class="btn btn-ghost" id="memory-trim-btn" data-i18n="performance.memoryRun">Jetzt ausführen</button>
+          </div>
+          <div class="item-desc" id="memory-trim-result"></div>
           <h2 class="section-title" data-i18n="performance.backgroundApps">Sichtbare Hintergrund-Apps</h2>
           <div class="header-actions inline">
             <button class="btn btn-ghost" id="performance-scan-btn" data-i18n="common.startScan">Scan starten</button>
           </div>
           <div class="item-list" id="performance-apps-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
+        </div>
+
+        <div class="subview" id="subview-extensions">
+          <p class="hint" data-i18n="extensions.hint">Installierte Erweiterungen aus Chrome, Edge und Firefox. Deaktivieren funktioniert nur für Chrome/Edge und nur bei geschlossenem Browser; Firefox-Erweiterungen bitte über about:addons verwalten.</p>
+          <div class="header-actions inline">
+            <button class="btn btn-ghost" id="extensions-scan-btn" data-i18n="extensions.load">Erweiterungen laden</button>
+          </div>
+          <div class="item-list" id="extensions-list"><div class="empty-hint" data-i18n="common.noScanYet">Noch kein Scan durchgeführt.</div></div>
         </div>
       </section>
 
@@ -214,6 +258,13 @@
           </div>
         </header>
         <p class="hint" data-i18n="duplicates.hint">Dateien werden per Inhalts-Hash verglichen (nicht nur Name/Größe). Pro Gruppe bleibt mindestens eine Kopie erhalten – die erste Datei ist immer vorausgewählt zum Behalten.</p>
+        <label class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="duplicates.similarTitle">Ähnliche Bilder einbeziehen (experimentell)</div>
+            <div class="item-desc" data-i18n="duplicates.similarDesc">Erkennt auch leicht unterschiedliche/komprimierte Bilder per Bildvergleich, nicht nur exakte 1:1-Duplikate. Kann bei großen Ordnern länger dauern.</div>
+          </div>
+          <input type="checkbox" class="checkbox" id="duplicates-similar-toggle" />
+        </label>
         <div class="summary-bar" id="duplicates-summary" hidden><span id="duplicates-summary-text"></span></div>
         <div class="path-display" id="duplicates-path" data-i18n="duplicates.noFolder">Kein Ordner ausgewählt.</div>
         <div class="scan-progress" id="duplicates-progress" hidden>
@@ -221,6 +272,8 @@
           <div class="bar"><div class="bar-fill" id="duplicates-progress-fill"></div></div>
         </div>
         <div class="item-list" id="duplicates-list"><div class="empty-hint" data-i18n="duplicates.pickFirst">Wähle zuerst einen Ordner aus.</div></div>
+        <h2 class="section-title" id="similar-images-title" hidden data-i18n="duplicates.similarResultsTitle">Ähnliche Bilder</h2>
+        <div class="item-list" id="similar-images-list"></div>
       </section>
 
       <!-- Space Analyzer -->
@@ -364,7 +417,39 @@
           <button class="btn btn-ghost" id="exclude-add-btn" data-i18n="settings.excludeAdd">Ordner hinzufügen…</button>
         </div>
         <div class="item-list" id="exclude-list"><div class="empty-hint" data-i18n="settings.excludeEmpty">Keine Ausschlüsse konfiguriert.</div></div>
+
+        <h2 class="section-title" data-i18n="settings.integration">Integration</h2>
+        <div class="settings-row">
+          <div class="settings-label">
+            <div class="item-label" data-i18n="settings.contextMenu">Explorer-Kontextmenü</div>
+            <div class="item-desc" data-i18n="settings.contextMenuDesc">Fügt „Mit Purgo analysieren“ zum Rechtsklick-Menü von Ordnern hinzu (springt in den Speicherplatz-Analyzer). Nur in der installierten Version verfügbar.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setting-context-menu" />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="item-desc" id="scheduler-task-status"></div>
+
+        <h2 class="section-title" data-i18n="settings.backupTitle">Einstellungen sichern</h2>
+        <div class="header-actions inline">
+          <button class="btn btn-ghost" id="settings-export-btn" data-i18n="settings.exportBtn">Exportieren…</button>
+          <button class="btn btn-ghost" id="settings-import-btn" data-i18n="settings.importBtn">Importieren…</button>
+        </div>
+        <p class="hint" data-i18n="settings.backupHint">Sichert alle Einstellungen, Ausschlüsse und den PIN-Status als eine Datei – nützlich zum Übertragen auf einen anderen Rechner.</p>
       </section>
+
+      <!-- Onboarding -->
+      <div class="modal-backdrop" id="onboarding-overlay" hidden>
+        <div class="modal-card" id="onboarding-card" style="width: 440px;">
+          <div class="modal-title" id="onboarding-title"></div>
+          <div class="modal-message" id="onboarding-message"></div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" id="onboarding-skip-btn" data-i18n="onboarding.skip">Überspringen</button>
+            <button class="btn btn-primary" id="onboarding-next-btn" data-i18n="onboarding.next">Weiter</button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 

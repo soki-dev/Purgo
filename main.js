@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, dialog, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { Worker } = require('worker_threads');
 const fs = require('fs');
@@ -15,8 +15,7 @@ const { scanDrivers } = require('./src/engine/driverScanner');
 const { deleteFiles } = require('./src/engine/duplicateFinder');
 const { scanResidue, deleteResidue } = require('./src/engine/residueFinder');
 const { getSettings, updateSettings } = require('./src/engine/settingsStore');
-const { addEntry, listHistory, getTotals, clearHistory, toCsv } = require('./src/engine/historyStore');
-const { startScheduler } = require('./src/engine/scheduler');
+const { addEntry, listHistory, getTotals, clearHistory, toCsv, getDailyTrend } = require('./src/engine/historyStore');
 const { isPinEnabled, setPin, clearPin, verifyPin } = require('./src/engine/security');
 const { isElevated, relaunchElevated } = require('./src/engine/elevation');
 const { listServices, setServiceState, setServiceStartMode } = require('./src/engine/servicesManager');
@@ -28,10 +27,39 @@ const {
   HIGH_PERFORMANCE_GUID,
   BALANCED_GUID
 } = require('./src/engine/performanceMode');
+const { getBootTimeHistory } = require('./src/engine/bootTime');
+const { listPendingUpdates } = require('./src/engine/windowsUpdate');
+const { getDiskHealth } = require('./src/engine/diskHealth');
+const { isRegistered: isContextMenuRegistered, registerContextMenu, unregisterContextMenu } = require('./src/engine/contextMenu');
+const { isTaskRegistered, registerScheduledTask, unregisterScheduledTask } = require('./src/engine/taskScheduler');
+const { listAllExtensions, setExtensionEnabled } = require('./src/engine/browserExtensions');
+const { trimAllProcesses } = require('./src/engine/memoryCleaner');
+const { buildReportHtml } = require('./src/engine/reportBuilder');
 
 let mainWindow;
 let tray;
 let isQuitting = false;
+
+function formatBytesSimple(bytes) {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function notify(title, body) {
+  if (!Notification.isSupported()) return;
+  new Notification({ title, body, icon: path.join(__dirname, 'assets', 'icon.png') }).show();
+}
+
+function extractArgValue(argv, flag) {
+  const idx = argv.indexOf(flag);
+  return idx !== -1 && argv[idx + 1] ? argv[idx + 1] : null;
+}
+
+function hasFlag(argv, flag) {
+  return argv.includes(flag);
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -104,16 +132,56 @@ function createTray() {
   tray.on('click', () => mainWindow.show());
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
-  startScheduler((result) => {
-    if (mainWindow) mainWindow.webContents.send('history:updated', result);
+// --- Single Instance: nötig, damit Explorer-Kontextmenü-Klicks und geplante
+// Aufgabenplanungs-Läufe eine bereits laufende Instanz ansprechen statt eine zweite
+// App-Instanz zu starten. ---
+const gotLock = app.requestSingleInstanceLock();
+
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', async (_event, argv) => {
+    const analyzePath = extractArgValue(argv, '--analyze-path');
+    if (analyzePath && mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.webContents.send('shell:analyzePath', analyzePath);
+      return;
+    }
+    if (hasFlag(argv, '--scheduled-clean')) {
+      const result = await runQuickClean().catch(() => null);
+      if (result) {
+        notify('Purgo – Geplante Reinigung', `${formatBytesSimple(result.freedBytes)} freigegeben.`);
+        if (mainWindow) mainWindow.webContents.send('history:updated', result);
+      }
+    }
   });
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+
+  app.whenReady().then(async () => {
+    if (hasFlag(process.argv, '--scheduled-clean')) {
+      // Von der Windows-Aufgabenplanung ausgelöst, während Purgo nicht lief: läuft
+      // komplett unsichtbar, zeigt nur eine Benachrichtigung und beendet sich danach.
+      const result = await runQuickClean().catch(() => null);
+      if (result) notify('Purgo – Geplante Reinigung', `${formatBytesSimple(result.freedBytes)} freigegeben.`);
+      app.quit();
+      return;
+    }
+
+    createWindow();
+    createTray();
+
+    const analyzePath = extractArgValue(process.argv, '--analyze-path');
+    if (analyzePath) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.send('shell:analyzePath', analyzePath);
+      });
+    }
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
   });
-});
+}
 
 app.on('before-quit', () => {
   isQuitting = true;
@@ -125,6 +193,9 @@ app.on('window-all-closed', () => {
 
 // --- System ---
 ipcMain.handle('system:getInfo', () => getSystemInfo());
+ipcMain.handle('system:getBootTimeHistory', () => getBootTimeHistory());
+ipcMain.handle('system:getDiskHealth', () => getDiskHealth());
+ipcMain.handle('system:listPendingUpdates', () => listPendingUpdates());
 
 // --- Junk-Cleaner ---
 ipcMain.handle('junk:scan', async () => {
@@ -277,11 +348,11 @@ ipcMain.handle('duplicates:pickFolder', async () => {
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
 });
-ipcMain.handle('duplicates:scan', (_event, folderPath) => {
+ipcMain.handle('duplicates:scan', (_event, { folderPath, includeSimilarImages }) => {
   const settings = getSettings();
   return new Promise((resolve, reject) => {
     const worker = new Worker(path.join(__dirname, 'src', 'engine', 'workers', 'duplicateWorker.js'), {
-      workerData: { rootPath: folderPath, excludedPaths: settings.excludedPaths }
+      workerData: { rootPath: folderPath, excludedPaths: settings.excludedPaths, includeSimilarImages }
     });
     worker.on('message', (msg) => {
       if (msg.type === 'progress') {
@@ -292,11 +363,11 @@ ipcMain.handle('duplicates:scan', (_event, folderPath) => {
         addEntry({
           type: 'duplicates-scan',
           category: 'scan',
-          summary: `Duplikat-Scan in ${folderPath}: ${msg.groups.length} Gruppen`,
+          summary: `Duplikat-Scan in ${folderPath}: ${msg.groups.length} Gruppen${msg.similarGroups.length ? `, ${msg.similarGroups.length} ähnliche Bilder-Gruppen` : ''}`,
           itemCount: msg.groups.length,
           details: { folderPath, wastedBytes }
         });
-        resolve(msg.groups);
+        resolve({ groups: msg.groups, similarGroups: msg.similarGroups });
       } else if (msg.type === 'error') {
         worker.terminate();
         reject(new Error(msg.error));
@@ -347,7 +418,7 @@ ipcMain.handle('space:list', (_event, rootPath) => {
 
 // --- Einstellungen ---
 ipcMain.handle('settings:get', () => getSettings());
-ipcMain.handle('settings:update', (_event, partial) => {
+ipcMain.handle('settings:update', async (_event, partial) => {
   const merged = updateSettings(partial);
   const description = Object.keys(partial)
     .map((key) => (typeof partial[key] === 'object' ? `${key}: ${JSON.stringify(partial[key])}` : `${key}: ${partial[key]}`))
@@ -358,12 +429,42 @@ ipcMain.handle('settings:update', (_event, partial) => {
     summary: `Einstellung geändert: ${description}`,
     details: partial
   });
+
+  if (partial.scheduler) {
+    if (merged.scheduler.enabled) {
+      await registerScheduledTask(merged.scheduler.frequency).catch((err) => {
+        console.error('Konnte geplante Aufgabe nicht registrieren:', err.message);
+      });
+    } else {
+      await unregisterScheduledTask().catch(() => {});
+    }
+  }
+
   return merged;
 });
 ipcMain.handle('settings:pickExcludeFolder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
+});
+ipcMain.handle('settings:export', async () => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: 'purgo-settings.json',
+    filters: [{ name: 'JSON-Datei', extensions: ['json'] }]
+  });
+  if (result.canceled || !result.filePath) return null;
+  fs.writeFileSync(result.filePath, JSON.stringify(getSettings(), null, 2), 'utf8');
+  return result.filePath;
+});
+ipcMain.handle('settings:import', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    filters: [{ name: 'JSON-Datei', extensions: ['json'] }]
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const raw = fs.readFileSync(result.filePaths[0], 'utf8');
+  const imported = JSON.parse(raw);
+  return updateSettings(imported);
 });
 
 // --- Sicherheit / PIN ---
@@ -375,6 +476,7 @@ ipcMain.handle('security:verifyPin', (_event, pin) => verifyPin(pin));
 // --- Verlauf ---
 ipcMain.handle('history:list', (_event, { limit, category } = {}) => listHistory(limit, category));
 ipcMain.handle('history:totals', () => getTotals());
+ipcMain.handle('history:trend', (_event, days) => getDailyTrend(days));
 ipcMain.handle('history:clear', () => {
   clearHistory();
   return { ok: true };
@@ -386,6 +488,25 @@ ipcMain.handle('history:export', async () => {
   });
   if (result.canceled || !result.filePath) return null;
   fs.writeFileSync(result.filePath, toCsv(), 'utf8');
+  return result.filePath;
+});
+
+// --- System-Health-Report ---
+ipcMain.handle('report:export', async () => {
+  const [systemInfo, totals, recentHistory, diskHealth] = await Promise.all([
+    getSystemInfo(),
+    Promise.resolve(getTotals()),
+    Promise.resolve(listHistory(20)),
+    getDiskHealth().catch(() => [])
+  ]);
+  const html = buildReportHtml({ systemInfo, totals, recentHistory, diskHealth });
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: 'purgo-health-report.html',
+    filters: [{ name: 'HTML-Datei', extensions: ['html'] }]
+  });
+  if (result.canceled || !result.filePath) return null;
+  fs.writeFileSync(result.filePath, html, 'utf8');
   return result.filePath;
 });
 
@@ -459,6 +580,37 @@ ipcMain.handle('performance:killProcess', async (_event, { pid, name }) => {
     category: 'program',
     summary: `Prozess beendet: ${name || pid}`,
     details: { pid, name }
+  });
+  return result;
+});
+ipcMain.handle('performance:trimMemory', async () => {
+  const result = await trimAllProcesses();
+  addEntry({
+    type: 'memory-trim',
+    category: 'program',
+    summary: 'Arbeitsspeicher-Cleaner ausgeführt',
+    details: result
+  });
+  return result;
+});
+
+// --- Explorer-Kontextmenü ---
+ipcMain.handle('contextMenu:isRegistered', () => isContextMenuRegistered());
+ipcMain.handle('contextMenu:register', () => registerContextMenu());
+ipcMain.handle('contextMenu:unregister', () => unregisterContextMenu());
+
+// --- Windows-Aufgabenplanung ---
+ipcMain.handle('scheduler:isTaskRegistered', () => isTaskRegistered());
+
+// --- Browser-Erweiterungen ---
+ipcMain.handle('extensions:list', () => listAllExtensions());
+ipcMain.handle('extensions:setEnabled', async (_event, { extension, enabled }) => {
+  const result = await setExtensionEnabled(extension, enabled);
+  addEntry({
+    type: 'extension-toggle',
+    category: 'program',
+    summary: `Erweiterung ${enabled ? 'aktiviert' : 'deaktiviert'}: ${extension.name} (${extension.browser})`,
+    details: { name: extension.name, browser: extension.browser, enabled }
   });
   return result;
 });

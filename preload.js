@@ -8,6 +8,9 @@ function on(channel, callback) {
 
 contextBridge.exposeInMainWorld('purgo', {
   getSystemInfo: () => ipcRenderer.invoke('system:getInfo'),
+  getBootTimeHistory: () => ipcRenderer.invoke('system:getBootTimeHistory'),
+  getDiskHealth: () => ipcRenderer.invoke('system:getDiskHealth'),
+  listPendingUpdates: () => ipcRenderer.invoke('system:listPendingUpdates'),
 
   scanJunk: () => ipcRenderer.invoke('junk:scan'),
   cleanJunk: (ids) => ipcRenderer.invoke('junk:clean', ids),
@@ -29,7 +32,7 @@ contextBridge.exposeInMainWorld('purgo', {
   scanDrivers: () => ipcRenderer.invoke('drivers:scan'),
 
   pickDuplicatesFolder: () => ipcRenderer.invoke('duplicates:pickFolder'),
-  scanDuplicates: (folderPath) => ipcRenderer.invoke('duplicates:scan', folderPath),
+  scanDuplicates: (folderPath, includeSimilarImages) => ipcRenderer.invoke('duplicates:scan', { folderPath, includeSimilarImages }),
   deleteDuplicates: (paths) => ipcRenderer.invoke('duplicates:delete', paths),
 
   pickSpaceFolder: () => ipcRenderer.invoke('space:pickFolder'),
@@ -40,6 +43,8 @@ contextBridge.exposeInMainWorld('purgo', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (partial) => ipcRenderer.invoke('settings:update', partial),
   pickExcludeFolder: () => ipcRenderer.invoke('settings:pickExcludeFolder'),
+  exportSettings: () => ipcRenderer.invoke('settings:export'),
+  importSettings: () => ipcRenderer.invoke('settings:import'),
 
   isPinEnabled: () => ipcRenderer.invoke('security:isEnabled'),
   setPin: (pin) => ipcRenderer.invoke('security:setPin', pin),
@@ -48,9 +53,12 @@ contextBridge.exposeInMainWorld('purgo', {
 
   listHistory: (limit, category) => ipcRenderer.invoke('history:list', { limit, category }),
   getHistoryTotals: () => ipcRenderer.invoke('history:totals'),
+  getHistoryTrend: (days) => ipcRenderer.invoke('history:trend', days),
   clearHistory: () => ipcRenderer.invoke('history:clear'),
   exportHistory: () => ipcRenderer.invoke('history:export'),
   onHistoryUpdated: (cb) => on('history:updated', cb),
+
+  exportReport: () => ipcRenderer.invoke('report:export'),
 
   checkForUpdate: () => ipcRenderer.invoke('update:check'),
   onUpdateStatus: (cb) => on('update:status', cb),
@@ -66,6 +74,18 @@ contextBridge.exposeInMainWorld('purgo', {
   setPowerPlan: (mode) => ipcRenderer.invoke('performance:setPowerPlan', mode),
   listBackgroundApps: () => ipcRenderer.invoke('performance:listBackgroundApps'),
   killProcess: (pid, name) => ipcRenderer.invoke('performance:killProcess', { pid, name }),
+  trimMemory: () => ipcRenderer.invoke('performance:trimMemory'),
+
+  isContextMenuRegistered: () => ipcRenderer.invoke('contextMenu:isRegistered'),
+  registerContextMenu: () => ipcRenderer.invoke('contextMenu:register'),
+  unregisterContextMenu: () => ipcRenderer.invoke('contextMenu:unregister'),
+
+  isScheduledTaskRegistered: () => ipcRenderer.invoke('scheduler:isTaskRegistered'),
+
+  listExtensions: () => ipcRenderer.invoke('extensions:list'),
+  setExtensionEnabled: (extension, enabled) => ipcRenderer.invoke('extensions:setEnabled', { extension, enabled }),
+
+  onAnalyzePath: (cb) => on('shell:analyzePath', cb),
 
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
 });

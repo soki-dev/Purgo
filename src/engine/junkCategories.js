@@ -8,12 +8,19 @@ function firstExistingPath(candidates) {
 
 const chromeUserData = path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'User Data', 'Default');
 const edgeUserData = path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'Edge', 'User Data', 'Default');
-const firefoxProfilesDir = path.join(os.homedir(), 'AppData', 'Local', 'Mozilla', 'Firefox', 'Profiles');
+
+// Firefox verteilt sein Profil auf zwei Orte: das "roaming" Profil (AppData\Roaming)
+// enthält die eigentlichen Nutzerdaten (Cookies, Formularverlauf, Lesezeichen, ...),
+// das "lokale" Profil (AppData\Local) nur performance-kritischen Cache, der bewusst
+// nicht mit dem Nutzerprofil wandert. Beide Ordner nutzen denselben Profilnamen.
+const firefoxProfilesDir = path.join(os.homedir(), 'AppData', 'Roaming', 'Mozilla', 'Firefox', 'Profiles');
+const firefoxLocalProfilesDir = path.join(os.homedir(), 'AppData', 'Local', 'Mozilla', 'Firefox', 'Profiles');
 
 // kind:
 //  'dir'               -> path ist ein Ordner, dessen INHALT rekursiv gelöscht wird
 //  'file'              -> path ist genau eine Datei
-//  'firefox-profile'   -> relativeTarget wird in jedem Firefox-Profilordner gesucht (fileKind: 'dir' | 'file')
+//  'firefox-profile'   -> relativeTarget wird in jedem Firefox-Profilordner gesucht (fileKind: 'dir' | 'file');
+//                         base: 'roaming' (Standard, echte Nutzerdaten) oder 'local' (nur Cache)
 //
 // risk: 'safe' = standardmäßig angehakt, 'medium' = Nutzer muss bewusst aktivieren
 const CATEGORY_DEFS = [
@@ -59,6 +66,7 @@ const CATEGORY_DEFS = [
     description: 'Zwischengespeicherte Webseitendaten von Mozilla Firefox.',
     kind: 'firefox-profile',
     fileKind: 'dir',
+    base: 'local',
     relativeTarget: 'cache2',
     risk: 'safe',
     defaultChecked: true
@@ -138,6 +146,7 @@ const CATEGORY_DEFS = [
     description: 'Meldet dich auf Webseiten ab. Firefox muss geschlossen sein.',
     kind: 'firefox-profile',
     fileKind: 'file',
+    base: 'roaming',
     relativeTarget: 'cookies.sqlite',
     risk: 'medium',
     defaultChecked: false
@@ -148,10 +157,11 @@ const CATEGORY_DEFS = [
     description: 'Gespeicherte Formulareingaben (Suchfeld-Verlauf etc.). Firefox muss geschlossen sein. Der Seitenverlauf wird bei Firefox bewusst nicht angeboten, da er zusammen mit den Lesezeichen in einer Datei liegt.',
     kind: 'firefox-profile',
     fileKind: 'file',
+    base: 'roaming',
     relativeTarget: 'formhistory.sqlite',
     risk: 'medium',
     defaultChecked: false
   }
 ];
 
-module.exports = { CATEGORY_DEFS, firefoxProfilesDir };
+module.exports = { CATEGORY_DEFS, firefoxProfilesDir, firefoxLocalProfilesDir };

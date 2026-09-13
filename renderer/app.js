@@ -127,6 +127,7 @@ async function loadDashboard() {
     diskList.appendChild(row);
   }
 
+  checkDiskWarning(info.disks);
   await loadHistoryPanel();
 }
 
@@ -518,6 +519,14 @@ function renderProgramsList(filter) {
     main.appendChild(el('div', 'item-desc', `${program.publisher || 'Unbekannter Hersteller'} · ${program.version || 'keine Version'}`));
     row.appendChild(main);
 
+    if (program.lastUsed) {
+      const daysAgo = Math.floor((Date.now() - new Date(program.lastUsed).getTime()) / (1000 * 60 * 60 * 24));
+      const badgeClass = daysAgo > 180 ? 'badge risk-medium' : 'badge';
+      row.appendChild(el('span', badgeClass, `zuletzt vor ${daysAgo} Tagen`));
+    } else {
+      row.appendChild(el('span', 'badge', 'Nutzung unbekannt'));
+    }
+
     row.appendChild(el('div', 'item-size', formatBytes(program.sizeBytes)));
 
     const uninstallBtn = el('button', 'btn btn-small btn-danger', 'Deinstallieren');
@@ -703,18 +712,22 @@ document.getElementById('duplicates-pick-btn').addEventListener('click', async (
   document.getElementById('duplicates-scan-btn').disabled = false;
 });
 
-window.purgo.onDuplicatesProgress(({ processed, total }) => {
+window.purgo.onDuplicatesProgress(({ phase, processed, total }) => {
   const progress = document.getElementById('duplicates-progress');
   const label = document.getElementById('duplicates-progress-label');
   const fill = document.getElementById('duplicates-progress-fill');
   progress.hidden = false;
   const pct = total ? Math.round((processed / total) * 100) : 0;
-  label.textContent = `${processed} von ${total} Dateien geprüft`;
+  const phaseLabel = phase === 'similarity' ? 'Ähnlichkeitssuche' : 'Duplikat-Suche';
+  label.textContent = `${phaseLabel}: ${processed} von ${total} Dateien geprüft`;
   fill.style.width = `${pct}%`;
 });
 
+let similarImageGroups = [];
+
 document.getElementById('duplicates-scan-btn').addEventListener('click', async () => {
   if (!duplicateFolder) return;
+  const includeSimilar = document.getElementById('duplicates-similar-toggle').checked;
   const btn = document.getElementById('duplicates-scan-btn');
   btn.disabled = true;
   btn.textContent = 'Scanne…';
@@ -724,8 +737,11 @@ document.getElementById('duplicates-scan-btn').addEventListener('click', async (
   document.getElementById('duplicates-progress').hidden = false;
   document.getElementById('duplicates-progress-fill').style.width = '0%';
   try {
-    duplicateGroups = await window.purgo.scanDuplicates(duplicateFolder);
+    const result = await window.purgo.scanDuplicates(duplicateFolder, includeSimilar);
+    duplicateGroups = result.groups;
+    similarImageGroups = result.similarGroups || [];
     renderDuplicateGroups();
+    renderSimilarImageGroups();
   } catch (err) {
     toast(`Scan fehlgeschlagen: ${err.message || err}`, 'error');
   } finally {
@@ -734,6 +750,59 @@ document.getElementById('duplicates-scan-btn').addEventListener('click', async (
     document.getElementById('duplicates-progress').hidden = true;
   }
 });
+
+function renderSimilarImageGroups() {
+  const title = document.getElementById('similar-images-title');
+  const list = document.getElementById('similar-images-list');
+  list.innerHTML = '';
+
+  if (similarImageGroups.length === 0) {
+    title.hidden = true;
+    return;
+  }
+  title.hidden = false;
+
+  for (const group of similarImageGroups) {
+    const groupEl = el('div', 'duplicate-group');
+    const header = el('div', 'duplicate-group-header');
+    header.appendChild(el('span', null, `${group.files.length} ähnliche Bilder`));
+    groupEl.appendChild(header);
+
+    group.files.forEach((filePath, index) => {
+      const row = el('div', 'duplicate-file-row');
+      if (index === 0) {
+        row.appendChild(el('span', 'keep-badge', 'behalten'));
+        row.appendChild(el('span', 'item-desc', filePath));
+      } else {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'checkbox similar-checkbox';
+        checkbox.dataset.path = filePath;
+        row.appendChild(checkbox);
+        row.appendChild(el('span', 'item-desc', filePath));
+      }
+      groupEl.appendChild(row);
+    });
+
+    const deleteBtn = el('button', 'btn btn-small btn-danger', 'Ausgewählte aus dieser Gruppe löschen');
+    deleteBtn.addEventListener('click', async () => {
+      const paths = Array.from(groupEl.querySelectorAll('.similar-checkbox:checked')).map((cb) => cb.dataset.path);
+      if (paths.length === 0) return;
+      const confirmed = await showConfirm(`${paths.length} Datei(en) endgültig löschen?`, { danger: true, confirmLabel: 'Löschen' });
+      if (!confirmed) return;
+      const results = await window.purgo.deleteDuplicates(paths);
+      const freed = results.reduce((sum, r) => sum + (r.freedBytes || 0), 0);
+      toast(`Fertig. ${formatBytes(freed)} freigegeben.`, 'success');
+      similarImageGroups = similarImageGroups
+        .map((g) => (g.id === group.id ? { ...g, files: g.files.filter((f) => !paths.includes(f)) } : g))
+        .filter((g) => g.files.length > 1);
+      renderSimilarImageGroups();
+    });
+    groupEl.appendChild(deleteBtn);
+
+    list.appendChild(groupEl);
+  }
+}
 
 function renderDuplicateGroups() {
   const list = document.getElementById('duplicates-list');
@@ -917,6 +986,22 @@ async function loadSettingsView() {
   document.getElementById('pin-change-btn').hidden = !settings.security.pinEnabled;
 
   renderExcludeList(settings.excludedPaths);
+
+  try {
+    document.getElementById('setting-context-menu').checked = await window.purgo.isContextMenuRegistered();
+  } catch {
+    document.getElementById('setting-context-menu').checked = false;
+  }
+
+  const taskStatusEl = document.getElementById('scheduler-task-status');
+  if (settings.scheduler.enabled) {
+    const registered = await window.purgo.isScheduledTaskRegistered();
+    taskStatusEl.textContent = registered
+      ? 'Windows-Aufgabenplanung: aktive geplante Aufgabe "PurgoScheduledClean" registriert.'
+      : 'Warnung: Geplante Reinigung ist aktiviert, aber keine Windows-Aufgabe gefunden. Häufigkeit einmal neu speichern.';
+  } else {
+    taskStatusEl.textContent = 'Windows-Aufgabenplanung: keine geplante Aufgabe aktiv.';
+  }
 }
 
 function renderExcludeList(paths) {
@@ -1249,9 +1334,303 @@ document.getElementById('setting-theme').addEventListener('change', (e) => {
   applyTheme(e.target.value);
 });
 
+// ---------- Dashboard: Datenträger-Gesundheit, Boot-Zeit, Windows-Updates, Warnung, Trend ----------
+async function loadDiskHealth() {
+  const list = document.getElementById('disk-health-list');
+  list.innerHTML = '';
+  try {
+    const disks = await window.purgo.getDiskHealth();
+    if (disks.length === 0) {
+      list.appendChild(el('div', 'empty-hint', 'Keine Daten verfügbar.'));
+      return;
+    }
+    for (const disk of disks) {
+      const row = el('div', 'item-row');
+      row.appendChild(el('div', 'item-main', disk.name));
+      const badgeClass = disk.health === 'Healthy' ? 'badge risk-safe' : 'badge outdated';
+      row.appendChild(el('span', badgeClass, disk.health));
+      list.appendChild(row);
+    }
+  } catch {
+    list.innerHTML = '';
+    list.appendChild(el('div', 'empty-hint', 'Nicht verfügbar auf diesem System.'));
+  }
+}
+
+async function loadBootTime() {
+  try {
+    const history = await window.purgo.getBootTimeHistory();
+    if (history.length === 0) {
+      document.getElementById('boot-time-value').textContent = 'Keine Daten';
+      return;
+    }
+    const latest = history[0];
+    document.getElementById('boot-time-value').textContent = `${(latest.bootTimeMs / 1000).toFixed(1)} s`;
+    const recent = history.slice(0, 5).map((h) => `${(h.bootTimeMs / 1000).toFixed(1)}s`).join(' · ');
+    document.getElementById('boot-time-trend').textContent = `Letzte Starts: ${recent}`;
+  } catch {
+    document.getElementById('boot-time-value').textContent = 'Nicht verfügbar';
+  }
+}
+
+document.getElementById('windows-update-check-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('windows-update-check-btn');
+  const result = document.getElementById('windows-update-result');
+  btn.disabled = true;
+  btn.textContent = 'Suche…';
+  result.textContent = 'Das kann bis zu 2 Minuten dauern…';
+  try {
+    const updates = await window.purgo.listPendingUpdates();
+    result.textContent = updates.length === 0
+      ? 'Keine ausstehenden Updates.'
+      : `${updates.length} ausstehende Update(s): ${updates.slice(0, 3).map((u) => u.title).join('; ')}${updates.length > 3 ? '…' : ''}`;
+  } catch (err) {
+    result.textContent = `Fehler: ${err.message || err}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Prüfen';
+  }
+});
+
+let lastDiskWarningDrive = null;
+
+function checkDiskWarning(disks) {
+  const critical = disks.find((d) => d.usedPercent >= 90);
+  const banner = document.getElementById('disk-warning-banner');
+  if (!critical) {
+    banner.hidden = true;
+    lastDiskWarningDrive = null;
+    return;
+  }
+  document.getElementById('disk-warning-text').textContent =
+    `Laufwerk ${critical.drive} ist zu ${critical.usedPercent}% voll – Zeit für eine Bereinigung.`;
+  banner.hidden = false;
+  if (lastDiskWarningDrive !== critical.drive) {
+    lastDiskWarningDrive = critical.drive;
+    try {
+      new Notification('Purgo – Speicherplatz knapp', { body: `Laufwerk ${critical.drive} ist zu ${critical.usedPercent}% voll.` });
+    } catch {
+      // Benachrichtigungen evtl. vom System blockiert, Banner reicht dann als Hinweis
+    }
+  }
+}
+
+async function loadTrendChart() {
+  const container = document.getElementById('trend-chart');
+  container.innerHTML = '';
+  const trend = await window.purgo.getHistoryTrend(14);
+  const max = Math.max(...trend.map((t) => t.freedBytes), 1);
+  const width = 560;
+  const height = 90;
+  const barWidth = width / trend.length;
+
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNs, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('class', 'trend-chart-svg');
+
+  trend.forEach((point, index) => {
+    const barHeight = Math.max(2, (point.freedBytes / max) * (height - 10));
+    const rect = document.createElementNS(svgNs, 'rect');
+    rect.setAttribute('x', index * barWidth + 2);
+    rect.setAttribute('y', height - barHeight);
+    rect.setAttribute('width', Math.max(2, barWidth - 4));
+    rect.setAttribute('height', barHeight);
+    rect.setAttribute('fill', point.freedBytes > 0 ? 'var(--accent)' : 'var(--border)');
+    const title = document.createElementNS(svgNs, 'title');
+    title.textContent = `${point.date}: ${formatBytes(point.freedBytes)}`;
+    rect.appendChild(title);
+    svg.appendChild(rect);
+  });
+
+  container.appendChild(svg);
+}
+
+document.getElementById('report-export-btn').addEventListener('click', async () => {
+  const savedPath = await window.purgo.exportReport();
+  if (savedPath) toast(`Bericht exportiert nach: ${savedPath}`, 'success');
+});
+
+// ---------- Browser-Erweiterungen ----------
+let extensionItems = [];
+
+function renderExtensionsList() {
+  const list = document.getElementById('extensions-list');
+  list.innerHTML = '';
+  if (extensionItems.length === 0) {
+    list.appendChild(el('div', 'empty-hint', 'Keine Erweiterungen gefunden.'));
+    return;
+  }
+  for (const extension of extensionItems) {
+    const row = el('div', 'item-row');
+    const main = el('div', 'item-main');
+    main.appendChild(el('div', 'item-label', extension.name));
+    main.appendChild(el('div', 'item-desc', `${extension.browser} · v${extension.version}`));
+    row.appendChild(main);
+
+    const label = document.createElement('label');
+    label.className = 'switch';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = extension.enabled;
+    input.disabled = extension.browser === 'Firefox';
+    input.addEventListener('change', async () => {
+      input.disabled = true;
+      try {
+        await window.purgo.setExtensionEnabled(extension, input.checked);
+        extension.enabled = input.checked;
+        toast(`${extension.name} ${input.checked ? 'aktiviert' : 'deaktiviert'}.`, 'success');
+      } catch (err) {
+        input.checked = !input.checked;
+        toast(`Fehler: ${err.message || err}`, 'error');
+      } finally {
+        input.disabled = extension.browser === 'Firefox';
+      }
+    });
+    label.appendChild(input);
+    label.appendChild(el('span', 'switch-slider'));
+    row.appendChild(label);
+
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('extensions-scan-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('extensions-scan-btn');
+  btn.disabled = true;
+  btn.textContent = 'Lade…';
+  const list = document.getElementById('extensions-list');
+  list.innerHTML = '';
+  list.appendChild(el('div', 'empty-hint', 'Lade Erweiterungen…'));
+  try {
+    extensionItems = await window.purgo.listExtensions();
+    renderExtensionsList();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Erweiterungen laden';
+  }
+});
+
+// ---------- Arbeitsspeicher-Cleaner ----------
+document.getElementById('memory-trim-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('memory-trim-btn');
+  btn.disabled = true;
+  btn.textContent = 'Läuft…';
+  try {
+    const result = await window.purgo.trimMemory();
+    document.getElementById('memory-trim-result').textContent =
+      `Angezeigter Verbrauch: ${formatBytes(result.beforeBytes)} → ${formatBytes(result.afterBytes)}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Jetzt ausführen';
+  }
+});
+
+// ---------- Settings: Kontextmenü, Aufgabenplanung, Backup ----------
+document.getElementById('setting-context-menu').addEventListener('change', async (e) => {
+  const checkbox = e.target;
+  try {
+    if (checkbox.checked) {
+      await window.purgo.registerContextMenu();
+      toast('Kontextmenü-Eintrag hinzugefügt.', 'success');
+    } else {
+      await window.purgo.unregisterContextMenu();
+      toast('Kontextmenü-Eintrag entfernt.', 'success');
+    }
+  } catch (err) {
+    checkbox.checked = !checkbox.checked;
+    toast(`Fehler: ${err.message || err}`, 'error');
+  }
+});
+
+document.getElementById('settings-export-btn').addEventListener('click', async () => {
+  const savedPath = await window.purgo.exportSettings();
+  if (savedPath) toast(`Einstellungen exportiert nach: ${savedPath}`, 'success');
+});
+
+document.getElementById('settings-import-btn').addEventListener('click', async () => {
+  const confirmed = await showConfirm('Einstellungen aus einer Datei importieren? Bestehende Einstellungen werden überschrieben.', { confirmLabel: 'Importieren' });
+  if (!confirmed) return;
+  try {
+    const merged = await window.purgo.importSettings();
+    if (merged) {
+      toast('Einstellungen importiert.', 'success');
+      loadSettingsView();
+    }
+  } catch (err) {
+    toast(`Import fehlgeschlagen: ${err.message || err}`, 'error');
+  }
+});
+
+// ---------- Explorer-Integration: Sprung in den Speicherplatz-Analyzer ----------
+window.purgo.onAnalyzePath((targetPath) => {
+  document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+  document.querySelector('[data-view="space"]').classList.add('active');
+  document.getElementById('view-space').classList.add('active');
+  spaceBreadcrumb = [targetPath];
+  loadSpaceLevel(targetPath);
+});
+
+// ---------- Onboarding-Assistent ----------
+const ONBOARDING_STEPS = [
+  { title: 'Willkommen bei Purgo! 🧹', message: 'Kurzer Rundgang durch die wichtigsten Funktionen, dauert nur eine Minute. Du kannst jederzeit überspringen.' },
+  { title: 'Dashboard', message: 'Hier siehst du den System-Health-Score auf einen Blick und kannst mit „Jetzt aufräumen“ sichere Junk-Kategorien in einem Klick bereinigen.' },
+  { title: 'Vorsicht bei Registry & Programm-Resten', message: 'Der Registry-Cleaner und der Software-Reste-Finder zeigen dir erst eine Vorschau. Prüfe Funde dort im Zweifel, bevor du löschst – ein Backup wird zwar automatisch angelegt, aber sicher ist sicher.' },
+  { title: 'PIN-Schutz verfügbar', message: 'Falls gewünscht, kannst du in den Einstellungen eine PIN für riskante Aktionen (Registry, Deinstallation, Reste löschen) aktivieren.' },
+  { title: 'Tray & geplante Reinigung', message: 'Purgo kann in den Infobereich minimieren und dort automatisch nach Zeitplan aufräumen – ebenfalls in den Einstellungen konfigurierbar. Los geht\'s!' }
+];
+
+function showOnboardingStep(index) {
+  const step = ONBOARDING_STEPS[index];
+  document.getElementById('onboarding-title').textContent = step.title;
+  document.getElementById('onboarding-message').textContent = step.message;
+  const nextBtn = document.getElementById('onboarding-next-btn');
+  nextBtn.textContent = index === ONBOARDING_STEPS.length - 1 ? 'Los geht\'s' : 'Weiter';
+}
+
+function initOnboarding() {
+  let completed = false;
+  try {
+    completed = localStorage.getItem('purgo.onboardingCompleted') === 'true';
+  } catch {
+    completed = false;
+  }
+  if (completed) return;
+
+  let step = 0;
+  const overlay = document.getElementById('onboarding-overlay');
+  overlay.hidden = false;
+  showOnboardingStep(step);
+
+  function finish() {
+    overlay.hidden = true;
+    try {
+      localStorage.setItem('purgo.onboardingCompleted', 'true');
+    } catch {
+      // Ohne localStorage taucht der Assistent beim nächsten Start erneut auf, kein Blocker
+    }
+  }
+
+  document.getElementById('onboarding-skip-btn').addEventListener('click', finish, { once: true });
+  document.getElementById('onboarding-next-btn').addEventListener('click', function onNext() {
+    step += 1;
+    if (step >= ONBOARDING_STEPS.length) {
+      finish();
+      document.getElementById('onboarding-next-btn').removeEventListener('click', onNext);
+    } else {
+      showOnboardingStep(step);
+    }
+  });
+}
+
 // ---------- Init ----------
 checkElevation();
 loadPowerPlan();
 renderAccentSwatches();
 document.getElementById('setting-theme').value = getStoredTheme();
+loadDiskHealth();
+loadBootTime();
+loadTrendChart();
+initOnboarding();
 loadDashboard();

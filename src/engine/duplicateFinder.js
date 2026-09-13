@@ -111,4 +111,4 @@ function deleteFiles(paths) {
   return results;
 }
 
-module.exports = { scanDuplicates, deleteFiles };
+module.exports = { scanDuplicates, deleteFiles, listFilesRecursive };

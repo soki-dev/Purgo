@@ -50,3 +50,17 @@ test('toCsv produces a header row plus one row per entry', () => {
   assert.match(lines[0], /Zeitstempel/);
   assert.match(lines[1], /junk-clean/);
 });
+
+test('getDailyTrend returns one bucket per day covering today, freed bytes on the right day', () => {
+  reset();
+  const { addEntry, getDailyTrend } = require('../src/engine/historyStore');
+  addEntry({ type: 'junk-clean', category: 'clean', summary: 'Test', freedBytes: 2048 });
+
+  const trend = getDailyTrend(7);
+  assert.equal(trend.length, 7);
+  const today = new Date().toISOString().slice(0, 10);
+  const todayBucket = trend.find((t) => t.date === today);
+  assert.ok(todayBucket);
+  assert.equal(todayBucket.freedBytes, 2048);
+  assert.equal(trend[trend.length - 1].date, today);
+});

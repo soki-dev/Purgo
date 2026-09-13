@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { runPowerShell } = require('./powershell');
-const { CATEGORY_DEFS, firefoxProfilesDir } = require('./junkCategories');
+const { CATEGORY_DEFS, firefoxProfilesDir, firefoxLocalProfilesDir } = require('./junkCategories');
 const { getSettings, isExcluded } = require('./settingsStore');
 
 function dirStats(dirPath, settings) {
@@ -58,14 +58,20 @@ async function getRecycleBinStats() {
   }
 }
 
+// Gibt Profil-NAMEN zurück (nicht volle Pfade), da Firefox denselben Profilnamen
+// sowohl im Roaming- als auch im Local-Ordner verwendet - siehe resolveFirefoxProfileBase.
 function listFirefoxProfiles() {
   try {
     return fs.readdirSync(firefoxProfilesDir, { withFileTypes: true })
       .filter((e) => e.isDirectory())
-      .map((e) => path.join(firefoxProfilesDir, e.name));
+      .map((e) => e.name);
   } catch {
     return [];
   }
+}
+
+function resolveFirefoxProfileBase(base) {
+  return base === 'local' ? firefoxLocalProfilesDir : firefoxProfilesDir;
 }
 
 function statTarget(targetPath, fileKind, settings) {
@@ -91,8 +97,9 @@ async function scanJunk() {
       const profiles = listFirefoxProfiles();
       let totalSize = 0;
       let totalCount = 0;
+      const base = resolveFirefoxProfileBase(def.base);
       for (const profile of profiles) {
-        const target = path.join(profile, def.relativeTarget);
+        const target = path.join(base, profile, def.relativeTarget);
         const { size, count } = statTarget(target, def.fileKind, settings);
         totalSize += size;
         totalCount += count;
@@ -144,4 +151,4 @@ async function scanJunk() {
   return items;
 }
 
-module.exports = { scanJunk, dirStats, listFirefoxProfiles };
+module.exports = { scanJunk, dirStats, listFirefoxProfiles, resolveFirefoxProfileBase };

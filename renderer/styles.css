@@ -25,6 +25,12 @@
 
 * { box-sizing: border-box; }
 
+/* Ohne dies gewinnt jede eigene Regel mit explizitem display (z.B. .modal-backdrop,
+   .admin-banner) gegen die Browser-Standardregel [hidden]{display:none} - Autor-CSS
+   schlägt UA-CSS immer, unabhängig von Spezifität. Damit el.hidden=true zuverlässig
+   funktioniert, muss das hier immer das letzte Wort haben. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   height: 100%;

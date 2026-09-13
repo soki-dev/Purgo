@@ -1,7 +1,7 @@
 {
   "name": "purgo",
   "productName": "Purgo",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Windows-Aufräum- und Wartungstool: Junk-Cleaner, Registry-Cleaner, Autostart- & Programm-Manager, Treiber-Check.",
   "author": "Tino",
   "main": "main.js",
